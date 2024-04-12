@@ -1,0 +1,10 @@
+# Tabulated priors for Process1
+# Table created by TAMCMC/tools/convert_fit2prior_table/make_priors_tables.py
+# dimensions: 1
+!	x	 PDF
+*	m	 (no_unit)
+1.000000000000	0.100000000000
+2.000000000000	0.200000000000
+3.000000000000	0.300000000000
+4.000000000000	0.400000000000
+5.000000000000	0.500000000000

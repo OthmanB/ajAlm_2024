@@ -1,0 +1,15 @@
+Fit of the a3(a1) function with either a linear fit or with a weighted mean:
+
+Chi square:
+    - For the linear fit (by me):        30.588103
+    - For the linear fit (by yfit):        29.222859
+    - For the weigted mean (by me):        43.478621
+    - For the weigted mean (by chisq_gfitexy_mean):        43.478621
+Reduced Chi square:
+    - For the linear fit (by me):       0.76470258
+    - For the linear fit (by yfit):       0.73057147
+    - For the weigted mean (by me):        1.0604542
+    - For the weigted mean (by chisq_gfitexy_mean):        1.0604542
+    
+The linear fit is overfitting the data.
+A mean is a better representation of the data.

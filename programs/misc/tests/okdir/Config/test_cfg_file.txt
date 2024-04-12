@@ -1,0 +1,106 @@
+# test_cfg_file.txt
+
+# Sample configuration file
+
+
+# --------------------------------------
+#  Main configuration file with presets for the TAMCMC
+#  This configuration file is used to process an ensemble 
+#  of stars/configurations by. When read by the program
+#  this file is used to Modify the content of config_default.cfg
+#  so that it match what is requrested here
+# --------------------------------------
+
+# Possibility to overwride the presets by using your own specific configuration
+   
+   force_manual_config=0; Set this to 1 if you want to execute your own config file. In that case all parameters defined in config_default.cfg should be defined into the file config_manual.cfg
+   manual_config_file=; Used as a configuration file only if force_manual_config is set to 1
+
+# main directory for all the input configurations (.model) AND data (.data) that we wish to process
+     #cfg_models_dir=/scratch/ob19/paper2_asphericity/RealData/inputs/14Aug2023/;
+     #cfg_models_dir=/Volumes/homes/dataonly/Work-2023/ajAlm_project/data/setups_Kamiaka2018/Final_Updated_Setup/;
+      cfg_models_dir=/Volumes/homes/dataonly/Work-2023/ajAlm_project/programs/TAMCMC-C-1.85.0/test/inputs/;
+#      
+# main directory for all outputs data. Subdirectories diags, diags/pdfs, restore and outputs will be created within that directory and within the subdirectory table_ids[index_ids, 0]
+     #cfg_out_dir=/scratch/ob19/paper2_asphericity/RealData/outputs/14Aug2023/;
+     #cfg_out_dir=/Volumes/homes/dataonly/Work-2023/ajAlm_project/data_tests/MCMC_tests/;
+      cfg_out_dir=/Volumes/homes/dataonly/Work-2023/ajAlm_project/programs/TAMCMC-C-1.85.0/test/outputs/;
+#
+#Configuration that will be executed for each given ID. You can put as many phase as you wish. Allowed phase name: Burn-in, Learning, Acquire, ptest
+# Inputs/Outputs restore files might have for syntax: [ID]_restore_[process].dat. process is 'B' (Burn-in) or 'L' (Learning) or 'A' (Acquire)
+   processing      = Burn-in  , Learning , Acquire;  Names of the processed phase. Each phase corresponds to a preconfigured setup. This is also defining the input_root_name variable
+   Nsamples        = 10000   ,  700000  , 400000;   Number of samples processed at each phase
+   c0              = 1.7      ,  1.7   ,    0;     
+   restore         =  0       ,  1    ,    2;     0= No restore, 1=Restore only the last values, 2=Restore last values and covariance matrix, 3=Restore all and append existing files
+   core_out        =  B       ,  L    ,    A;   gives the suffix for output files. typical syntax: [ID]_[data_type]_[out_core].* [data_type] can be: 'restore' or output data filenames
+   core_in         =  B       ,  B    ,    L;
+
+   start_index_processing=0; This is the index of the processing step at which we begin... useful if we want to go directly to an e.g Acquire phase (previous phase must exist)
+   last_index_processing=0; This is the last index of the processing step... useful if we want to compute only e.g. Burn-in + Learning.
+
+# Here is a table that contains informations on the processes. Names of configuration files should match the IDs
+# This is used to create automatically the cfg_models_name (extension .model) and the cfg_model_file (extension .data)
+# Data are also put in subdirectories of same name as ID and within outputs.output_dir (defined in the config_default.cfg)
+# Syntax: [ID of the process]  [likelihood_param] (e.g. in case of chi(2,2), the number of averaged spectra). E.G for the model_Test_Gaussian: Gaussian    1
+   table_ids= 59 , 2; Number of lines and number of columns
+kplr001435467_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr002837475_kasoc-wpsd_slc_v2_21000_SK      1;
+kplr003424541_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr003425851_kasoc-psd_slc_v3_21000_OB      1;
+kplr003456181_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr003544595_kasoc-psd_slc_v5_21000_OB      1;
+kplr003632418_kasoc-psd_slc_v6_31000_OB      1;
+kplr003733735_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr004141376_kasoc-psd_slc_v4_21000_OB      1;
+kplr004143755_kasoc-psd_slc_v4_21000_SK      1;
+kplr004349452_kasoc-psd_slc_v5_21000_OB      1;
+kplr004450844_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr005094751_kasoc-psd_slc_v4_21000_SK      1;
+kplr005773345_kasoc-psd_slc_v1_21000_SK      1;
+kplr005866724_kasoc-psd_slc_v5_21000_OB      1;
+kplr005905822_othman_21000_OB                1;
+kplr006196457_kasoc-psd_slc_v3_21000_SK      1;
+kplr006278762_kasoc-psd_slc_v3_21000_OB      1;
+kplr006508366_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr006521045_kasoc-psd_slc_v4_31000_OB      1;
+kplr006679371_kasoc-psd_slc_v1_21000_SK      1;
+kplr007103006_kasoc-wpsd_slc_v2_21000_SK      1;
+kplr007206837_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr007670943_kasoc-psd_slc_v4_21000_OB      1;
+kplr007771282_kasoc-psd_slc_v1_21000_SK      1;
+kplr007940546_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr008013439_othman_21000_SK                 1;
+kplr008077137_kasoc-psd_slc_v4_21000_OB       1;
+kplr008176564_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr008292840_kasoc-psd_slc_v4_21000_OB      1;
+kplr008478994_kasoc-psd_slc_v4-lessmodes_21000_OB       1;
+kplr008494142_kasoc-psd_slc_v4_21000_OB      1;
+kplr008554498_kasoc-psd_slc_v4_21000_SK      1;
+kplr008866102_kasoc-psd_slc_v4_21000_OB      1;
+kplr009139163_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr009206432_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr009353712_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr009414417_kasoc-psd_slc_v5_31000_OB      1;
+kplr009451706_kasoc-psd_slc_v3_21000_SK      1;
+kplr009579208_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr009592705_kasoc-psd_slc_v4_21000_OB      1;
+kplr009696358_kasoc-psd_slc_v4_21000_SK      1;
+kplr009697131_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr009812850_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr010162436_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr010586004_kasoc-psd_slc_v3_21000_OB      1;
+kplr010666592_kasoc-psd_slc_v4_31000_OB      1;
+kplr010730618_kasoc-psd_slc_v1_21000_SK      1;
+kplr011081729_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr011127479_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr011133306_kasoc-psd_slc_v4_21000_SK      1;
+kplr011253226_kasoc-psd_slc_v1_21000_SK      1;
+kplr011295426_kasoc-psd_slc_v4_31000_OB      1;
+kplr011401755_kasoc-psd_slc_v5_21000_OB      1;
+kplr011807274_kasoc-psd_slc_v4_21000_OB      1;
+kplr011853905_kasoc-psd_slc_v3_21000_SK      1;
+kplr011904151_kasoc-psd_slc_v5_21000_OB      1;
+kplr012069127_kasoc-wpsd_slc_v1_21000_SK      1;
+kplr012317678_kasoc-wpsd_slc_v1_21000_SK      1;
+/END;
+
