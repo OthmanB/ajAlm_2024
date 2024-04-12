@@ -103,13 +103,13 @@ def do_products_database(data_dir, dir_out,
         modeltypes, oddsratios, obsratios_err, starID=compare_all_evidences(data_dir+d, diro, 
                                                                 do_list, file_odds, append=append, recompute_evidence=recompute_evidence)
         print(colored("     - Summary of the pdfs...","green"), flush=True)
-        #do_all_analyse_ajAlm(data_dir, dir_out, d, prefix="kplr", 
-        #                    allowed_modeltype=done_modeltype, 
-        #                    allowed_modelsubtype1=done_modelsubtype1, 
-        #                    allowed_modelsubtype2=done_modelsubtype2, 
-        #                    show_inc=True, 
-        #                    cpp_path=cpp_path, phase="A", period=period,
-        #                    append=append, tmpdir=tmpdir)
+        do_all_analyse_ajAlm(data_dir, dir_out, d, prefix="kplr", 
+                            allowed_modeltype=done_modeltype, 
+                            allowed_modelsubtype1=done_modelsubtype1, 
+                            allowed_modelsubtype2=done_modelsubtype2, 
+                            show_inc=True, 
+                            cpp_path=cpp_path, phase="A", period=period,
+                            append=append, tmpdir=tmpdir)
         append=True # All iteration i>1 are in append mode
 
 def do_tests():
