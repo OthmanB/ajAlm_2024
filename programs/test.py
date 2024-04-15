@@ -1,16 +1,17 @@
+import os
 import unittest
+import tempfile
 import numpy as np
-from numpy.testing import assert_allclose
 import copy
 from termcolor import colored
-from show_aj_fct_stellar_params_v2 import probability_composer,query_proba_from_ProductsOdds, query_params_from_ProductsRot, DoClassesExternalvsRot
+from show_aj_fct_stellar_params_v2 import probability_composer,query_proba_from_ProductsOdds, query_params_from_ProductsRot, DoClassesExternalvsRot, WriteDataClass
 
 '''
     Test of the probability_composer
 '''
 class TestProcessProducts(unittest.TestCase):
     def test_probability_composer(self):
-        print(colored(" Testing probability_composer()....", "green"), end="")
+        print(colored(" Testing probability_composer()....", "green"), end="", flush=True)
         # Define input
         ProductsOdds = {
                         "header": "# Test header Odds Ratio",
@@ -33,7 +34,7 @@ class TestProcessProducts(unittest.TestCase):
         np.testing.assert_allclose(RecomposedProductsOdds["Probabilities"]["key1"], np.array([[0.3, 0.3, 0.3], [0.9, 0.9, 0.6]]), atol=1e-8, rtol=1e-5)
         self.assertEqual(RecomposedProductsOdds["header"], expected_RecProductsOdds["header"])
         self.assertEqual(RecomposedProductsOdds["label"], expected_RecProductsOdds["label"])
-        print(colored("Passed", "green"))
+        print(colored("Passed", "green"), flush=True)
 
     def setUpExternal(self):
         '''
@@ -107,7 +108,7 @@ class TestProcessProducts(unittest.TestCase):
         '''
             Querry with ModelCode and a single Confidence provided
         '''
-        print(colored("Testing query_params_from_ProductsOdds() with ModelCode and Confidence provided.....", "green"), end="")
+        print(colored("Testing query_params_from_ProductsOdds() with ModelCode and Confidence provided.....", "green"), end="", flush=True)
         self.setUpProductsOdds()
         ID = "kplr003427720_kasoc-psd_slc_v1"
         ModelCode = "1101"
@@ -116,13 +117,13 @@ class TestProcessProducts(unittest.TestCase):
 
         expected_result = 48.2
         self.assertEqual(result, expected_result)
-        print(colored("Passed", "green"))
+        print(colored("Passed", "green"), flush=True)
 
     def test_query_proba_from_ProductsOdds_B(self):
         '''
             Querry with No ModelCode provided and a single Confidence provided
         '''
-        print(colored("Testing query_params_from_ProductsOdds() with No ModelCode and Confidence provided.....", "green"), end="")
+        print(colored("Testing query_params_from_ProductsOdds() with No ModelCode and Confidence provided.....", "green"), end="", flush=True)
         self.setUpProductsOdds()
         ID = "kplr003427720_kasoc-psd_slc_v1"
         ModelCode = "1101"
@@ -132,13 +133,13 @@ class TestProcessProducts(unittest.TestCase):
         expected_result = [48.2, 51.8]
         for i in range(len(expected_result)):
             self.assertEqual(result[i], expected_result[i])
-        print(colored("Passed", "green"))
+        print(colored("Passed", "green"), flush=True)
 
     def test_query_proba_from_ProductsOdds_C(self):
         '''
             Querry with No ModelCode provided and No Confidence provided and with an existing ID
         '''
-        print(colored("Testing query_params_from_ProductsOdds() with No ModelCode and No Confidence provided.....", "green"), end="")
+        print(colored("Testing query_params_from_ProductsOdds() with No ModelCode and No Confidence provided.....", "green"), end="", flush=True)
         self.setUpProductsOdds()
         ID = "kplr003427720_kasoc-psd_slc_v1"
         result = query_proba_from_ProductsOdds(self.ProductsOdds, ID)
@@ -152,13 +153,13 @@ class TestProcessProducts(unittest.TestCase):
         for key in result.keys():
             for i in range(len(expected_result["label"])):
                 self.assertEqual(result[key][i], expected_result[key][i])
-        print(colored("Passed", "green"))
+        print(colored("Passed", "green"), flush=True)
 
     def test_query_params_from_ProductsRot_A(self):
         '''
             Querry with all parameters set to existing values, including optional ones
         '''
-        print(colored("Testing query_params_from_ProductsRot() with ParamName='a2'.....", "green"), end="")
+        print(colored("Testing query_params_from_ProductsRot() with ParamName='a2'.....", "green"), end="", flush=True)
 
         self.setUpProductsRot()
         ID="kplr003656476_kasoc-psd_slc_v1"
@@ -176,13 +177,13 @@ class TestProcessProducts(unittest.TestCase):
         result = query_params_from_ProductsRot(self.ProductsRot, ID, ModelCode, confidence, ParamName=ParamName, ResolveID=ResolveID)
         expected_result= 82.2236
         self.assertEqual(result, expected_result)  
-        print(colored("Passed", "green"))
+        print(colored("Passed", "green"), flush=True)
 
     def test_query_params_from_ProductsRot_B(self):
         '''
             Querry with all parameters set to existing values, with ParamName=None
         '''
-        print(colored("Testing query_params_from_ProductsRot() with ParamName=None.....", "green"), end="")
+        print(colored("Testing query_params_from_ProductsRot() with ParamName=None.....", "green"), end="", flush=True)
 
         self.setUpProductsRot()
         ID="kplr003656476_kasoc-psd_slc_v1"
@@ -196,7 +197,7 @@ class TestProcessProducts(unittest.TestCase):
         expected_result= np.asarray([280.8131, 26.0219, 0.], dtype=float)
         for i in range(len(result)):
             self.assertEqual(result[i], expected_result[i]) 
-        print(colored("Passed", "green"))
+        print(colored("Passed", "green"), flush=True)
 
     def test_DoClassesExternalvsRot(self):
         print(colored("Testing DoClassesExternalvsRot().....", "green"), end="\n", flush=True)
@@ -277,6 +278,51 @@ class TestProcessProducts(unittest.TestCase):
         self.assertTrue(np.array_equal(result['C']['err_x'], expected_errx_ClassC), "X error values do not match for Class 'C'")
         self.assertTrue(np.array_equal(result['C']['y'], expected_y_ClassC), "Y values do not match for Class 'C'")
         self.assertTrue(np.array_equal(result['C']['err_y'], expected_erry_ClassC), "Y error values do not match for Class 'A'")
+        print(colored("     Passed", "green"), flush=True)
+
+    def test_WriteDataClass(self):
+        print(colored("Testing test_WriteDataClass().....", "green"), flush=True, end="")
+        
+        temp = tempfile.NamedTemporaryFile(delete=False)
+        temp.close()
+        data = {
+            "key1": {
+                "starID": ["star1", "star2"],
+                "x": [1.1, 2.2],
+                "y": [3.3, 4.4],
+                "err_x": [0.1, 0.2],
+                "err_y": [0.3, 0.4],
+                "Probability": [0.9, 0.8],
+                "color": 'red',
+                "marker": 'o',
+                "fillstyle": 'full',
+                "label": 'This_is_a_test_label_for_the_unit_test'
+            },
+            "xlabel": 'X-Label',
+            "ylabel": 'Y-Label',
+            "hline": True
+        }
+
+        WriteDataClass(temp.name, data, header="#This is a test header\n")
+        with open(temp.name, 'r') as f:
+            content = f.readlines()
+        self.assertIn("#This is a test header\n", content[0])
+        labels=content[1][1:].split()
+        vals1=content[2].split()
+        vals2=content[3].split()
+        expected_labels=["key", "StarID", "x", "y", "err_x", "err_y", "Pr", "color", "marker", "fillstyle", "label"]
+        expected_vals1=["key1","star1","1.1","3.3","0.1","0.3","0.9","red","o","full","This_is_a_test_label_for_the_unit_test"]
+        expected_vals2=["key1", "star2", "2.2", "4.4", "0.2", "0.4", "0.8", "red", "o", "full", "This_is_a_test_label_for_the_unit_test"]
+
+        for i in range(len(expected_labels)):
+            self.assertIn(expected_labels[i], labels[i])
+            self.assertIn(expected_vals1[i], vals1[i])
+            self.assertIn(expected_vals2[i], vals2[i])
+        
+        # delete the temporary file
+        os.unlink(temp.name)
+        print(colored("Passed", "green"), flush=True)
 
 if __name__ == '__main__':
     unittest.main()
+

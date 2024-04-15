@@ -773,6 +773,29 @@ def DoClassesExternalvsRot(ModelCode, ProductsOdds, ProductsRot,ExternalData, Ro
         key=increment_letter(key)
     return classes
 
+def WriteDataClass(fileout, classes, header="#Tabular representation of the data class used in the plots\n"):
+    excluded_keys=['xlabel', 'ylabel', 'hline']
+    allowed_keys=[]
+    for key in classes.keys():
+        if key not in excluded_keys:
+            allowed_keys.append(key)
+    for key in allowed_keys:
+        labels="!{0:<5} {1:<15} {2:<15.5} {3:<15.5} {4:<15.5} {5:<15.5} {6:<10} {7:<10} {8:<5} {9:<8} {10:<15}\n".format("key", "StarID", "x", "y", "err_x", "err_y", "Pr", "color", "marker", "fillstyle", "label")
+        variables=""
+        for i in range(len(classes[key]["starID"])):
+            variables=variables + " {0:<5} {1:<15} {2:<15.5} {3:<15.5} {4:<15.5} {5:<15.5} {6:<10.2} {7:<10} {8:<8} {9:<10} {10:<}\n".format(key, classes[key]["starID"][i], 
+                                                classes[key]["x"][i], classes[key]["y"][i], 
+                                                classes[key]["err_x"][i],classes[key]["err_y"][i],
+                                                classes[key]["Probability"][i],
+                                                classes[key]["color"],
+                                                classes[key]["marker"],
+                                                classes[key]["fillstyle"],
+                                                classes[key]["label"])
+        f=open(fileout, "w")
+        f.write(header)
+        f.write(labels)
+        f.write(variables)
+        f.close()
 
 def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary", core_rot_files="rotation_stats",
                 odds_keys=["m1s", "median", "p1s"],
