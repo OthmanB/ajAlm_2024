@@ -290,8 +290,8 @@ class TestProcessProducts(unittest.TestCase):
                 "starID": ["star1", "star2"],
                 "x": [1.1, 2.2],
                 "y": [3.3, 4.4],
-                "err_x": [0.1, 0.2],
-                "err_y": [0.3, 0.4],
+                "err_x": [[0.1, 0.2],[0.15,0.25]],
+                "err_y": [[0.3, 0.4],[0.35, 0.45]],
                 "Probability": [0.9, 0.8],
                 "color": 'red',
                 "marker": 'o',
@@ -310,9 +310,9 @@ class TestProcessProducts(unittest.TestCase):
         labels=content[1][1:].split()
         vals1=content[2].split()
         vals2=content[3].split()
-        expected_labels=["key", "StarID", "x", "y", "err_x", "err_y", "Pr", "color", "marker", "fillstyle", "label"]
-        expected_vals1=["key1","star1","1.1","3.3","0.1","0.3","0.9","red","o","full","This_is_a_test_label_for_the_unit_test"]
-        expected_vals2=["key1", "star2", "2.2", "4.4", "0.2", "0.4", "0.8", "red", "o", "full", "This_is_a_test_label_for_the_unit_test"]
+        expected_labels=["key", "StarID", "x", "y", "err_x_inf", "err_x_sup", "err_y_inf", "err_y_sup", "Pr", "color", "marker", "fillstyle", "label"]
+        expected_vals1=["key1","star1","1.1","3.3","0.1", "0.15","0.3", "0.35", "0.9","red","o","full","This_is_a_test_label_for_the_unit_test"]
+        expected_vals2=["key1", "star2", "2.2", "4.4", "0.2", "0.25", "0.4", "0.45", "0.8", "red", "o", "full", "This_is_a_test_label_for_the_unit_test"]
 
         for i in range(len(expected_labels)):
             self.assertIn(expected_labels[i], labels[i])

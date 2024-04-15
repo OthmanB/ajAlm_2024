@@ -780,12 +780,24 @@ def WriteDataClass(fileout, classes, header="#Tabular representation of the data
         if key not in excluded_keys:
             allowed_keys.append(key)
     for key in allowed_keys:
-        labels="!{0:<5} {1:<15} {2:<15.5} {3:<15.5} {4:<15.5} {5:<15.5} {6:<10} {7:<10} {8:<5} {9:<8} {10:<15}\n".format("key", "StarID", "x", "y", "err_x", "err_y", "Pr", "color", "marker", "fillstyle", "label")
+        labels="!{0:<5} {1:<15} {2:<15} {3:<15} {4:<15} {5:<15} {6:<15} {7:<15} {8:<10} {9:<10} {10:<5} {11:<8} {12:<15}\n".format("key", "StarID", "x", "y", "err_x_inf","err_x_sup", "err_y_inf", "err_y_sup", "Pr", "color", "marker", "fillstyle", "label")
         variables=""
         for i in range(len(classes[key]["starID"])):
-            variables=variables + " {0:<5} {1:<15} {2:<15.5} {3:<15.5} {4:<15.5} {5:<15.5} {6:<10.2} {7:<10} {8:<8} {9:<10} {10:<}\n".format(key, classes[key]["starID"][i], 
+            print("key:", key)
+            print("starID: ", classes[key]["starID"][i])
+            print("x: ", classes[key]["x"][i])
+            print("y: ", classes[key]["y"][i])
+            print("err_x: ", classes[key]["err_x"][i])
+            print("err_y: ", classes[key]["err_y"][i])
+            print("Probability: ", classes[key]["Probability"][i])
+            print("color: ", classes[key]["color"])
+            print("marker:",  classes[key]["marker"])
+            print("fillstyle : ", classes[key]["fillstyle"])
+            print("label: ", classes[key]["label"])
+            variables=variables + " {0:<5} {1:<15} {2:<15.5} {3:<15.5} {4:<15.5} {5:<15.5} {6:<15.5} {7:<15.5} {8:<10.2} {9:<10} {10:<8} {11:<10} {12:<}\n".format(key, classes[key]["starID"][i], 
                                                 classes[key]["x"][i], classes[key]["y"][i], 
-                                                classes[key]["err_x"][i],classes[key]["err_y"][i],
+                                                classes[key]["err_x"][0][i],classes[key]["err_x"][1][i],
+                                                classes[key]["err_y"][0][i],classes[key]["err_y"][1][i],
                                                 classes[key]["Probability"][i],
                                                 classes[key]["color"],
                                                 classes[key]["marker"],
@@ -845,18 +857,20 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
     ax[0].set_title(r"$a_3$ significance (1101 vs 1111)")
     # Handling legends
     ax[0].legend(fontsize=10, loc='upper right')	
-    fig_1d.savefig(os.path.join(dir_out, 'a3significance_vs_a2a4_Teff.jpg'), dpi=300)
-
+    imgfile='a3significance_vs_a2a4_Teff.jpg'
+    fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
     classes_a2=DoClassesRotvsRot(ModelCode, ProductsOdds_1101_vs_1111, ProductsRot_1101_vs_1111, 'a2', 'a1',
                       r"$a_1$ (nHz)", r"$a_2$ (nHz)", ProbaThresholds=ProbaThresholds, 
                       ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                       MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
                       do_hline=[True,0])
+    WriteDataClass(imgfile + "_a2.res", classes_a2, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
     classes_a4=DoClassesRotvsRot(ModelCode, ProductsOdds_1101_vs_1111, ProductsRot_1101_vs_1111, 'a4', 'a1',
                       r"$a_1$ (nHz)", r"$a_4$ (nHz)", ProbaThresholds=ProbaThresholds, 
                       ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                       MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
                       do_hline=[True,0])
+    WriteDataClass(imgfile + "_a4.res", classes_a4, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
     fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
     plot_ajAlm(classes_a2, ax=ax[0])
     plot_ajAlm(classes_a4, ax=ax[1])
