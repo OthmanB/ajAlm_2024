@@ -790,10 +790,12 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
         - R
     If an activity_summary_file (with epsilon, theta0, delta) is also provided, shows its quantities the same quantities listed above
     '''
-    products_root_dir="/Users/obenomar/Work/dev/ajAlm/data_test/Products/"
+    products_root_dir="/Users/obenomar/Work/dev/ajAlm/data/HighLevelProducts/Tcoef_1.7_1.86.77/statistical_summary/"
     external_file="/Users/obenomar/Work/dev/ajAlm/External_data/composite_table_Legacy_Kamiaka.csv"
-    dir_out="/Users/obenomar/Work/dev/ajAlm/data_test/Results/"
+    dir_out="/Users/obenomar/Work/dev/ajAlm/data/HighLevelResults/Tcoef_1.7_1.86.77/"
  
+    ProbaThresholds=[50, 70, 90]
+
     print('Reading the file with M, R, Teff, etc... ', external_file)
     NonSeismic=get_externaldata(external_file) # Matricial format converted into a dictionary for some information
 
@@ -805,24 +807,30 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
                      confidence_rot=confidence_rot)
 
     classes_a2=DoClassesExternalvsRot(ModelCode, ProductsOdds_1101_vs_1111, ProductsRot_1101_vs_1111,
-                        NonSeismic, "a2", "Teff_SDSS", "Tot_eTeff", "Teff (K)", r"$a_2$ (nHz)", do_hline=[True,0])
+                        NonSeismic, "a2", "Teff_SDSS", "Tot_eTeff", "Teff (K)", r"$a_2$ (nHz)", do_hline=[True,0], 
+                        ProbaThresholds=ProbaThresholds,
+                        ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
+                        MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"])
     classes_a4=DoClassesExternalvsRot(ModelCode, ProductsOdds_1101_vs_1111, ProductsRot_1101_vs_1111,
-                        NonSeismic, "a4", "Teff_SDSS", "Tot_eTeff", r"T$_{eff}$ (K)", r"$a_4$ (nHz)", do_hline=[True,0])
+                        NonSeismic, "a4", "Teff_SDSS", "Tot_eTeff", r"T$_{eff}$ (K)", r"$a_4$ (nHz)", do_hline=[True,0],
+                        ProbaThresholds=ProbaThresholds,
+                        ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
+                        MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"])
     fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
     plot_ajAlm(classes_a2, ax=ax[0])
     plot_ajAlm(classes_a4, ax=ax[1])
-    ax[0].set_title(r"$a_3$ significance")
+    ax[0].set_title(r"$a_3$ significance (1101 vs 1111)")
     # Handling legends
     ax[0].legend(fontsize=10, loc='upper right')	
-    fig_1d.savefig(os.path.join(dir_out, 'summary_a2a4_Teff.jpg'), dpi=300)
+    fig_1d.savefig(os.path.join(dir_out, 'a3significance_vs_a2a4_Teff.jpg'), dpi=300)
 
     classes_a2=DoClassesRotvsRot(ModelCode, ProductsOdds_1101_vs_1111, ProductsRot_1101_vs_1111, 'a2', 'a1',
-                      r"$a_1$ (nHz)", r"$a_2$ (nHz)", ProbaThresholds=[50, 75, 90], 
+                      r"$a_1$ (nHz)", r"$a_2$ (nHz)", ProbaThresholds=ProbaThresholds, 
                       ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                       MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
                       do_hline=[True,0])
     classes_a4=DoClassesRotvsRot(ModelCode, ProductsOdds_1101_vs_1111, ProductsRot_1101_vs_1111, 'a4', 'a1',
-                      r"$a_1$ (nHz)", r"$a_4$ (nHz)", ProbaThresholds=[50, 75, 90], 
+                      r"$a_1$ (nHz)", r"$a_4$ (nHz)", ProbaThresholds=ProbaThresholds, 
                       ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                       MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
                       do_hline=[True,0])
@@ -832,8 +840,52 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
     ax[0].set_title(r"$a_3$ significance")
     # Handling legends
     ax[0].legend(fontsize=10, loc='upper right')	
-    fig_1d.savefig(os.path.join(dir_out, 'summary_a2a4_a1.jpg'), dpi=300)
-    exit()
+    fig_1d.savefig(os.path.join(dir_out, 'a3significance_vs_a2a4_a1.jpg'), dpi=300)
+
+
+    # a2  significance using 1001 vs 1101
+    set_dir = "1001_vs_1101"
+    ModelCode="1101"
+    ProductsOdds_1001_vs_1101, ProductsRot_1001_vs_1101=get_productsdata(os.path.join(products_root_dir , set_dir), core_odds_files=core_odds_files, core_rot_files=core_rot_files,
+                     odds_keys=odds_keys,
+                     confidence_rot=confidence_rot)
+
+    classes_a2=DoClassesExternalvsRot(ModelCode, ProductsOdds_1001_vs_1101, ProductsRot_1101_vs_1111,
+                        NonSeismic, "a2", "Teff_SDSS", "Tot_eTeff", "Teff (K)", r"$a_2$ (nHz)", do_hline=[True,0],
+                        ProbaThresholds=ProbaThresholds, 
+                        ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
+                        MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"])
+    classes_a4=DoClassesExternalvsRot(ModelCode, ProductsOdds_1001_vs_1101, ProductsRot_1001_vs_1101,
+                        NonSeismic, "a4", "Teff_SDSS", "Tot_eTeff", r"T$_{eff}$ (K)", r"$a_4$ (nHz)", do_hline=[True,0],
+                        ProbaThresholds=ProbaThresholds, 
+                        ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
+                        MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"])
+    fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
+    plot_ajAlm(classes_a2, ax=ax[0])
+    plot_ajAlm(classes_a4, ax=ax[1])
+    ax[0].set_title(r"$a_2$ significance (1001 vs 1101)")
+    # Handling legends
+    ax[0].legend(fontsize=10, loc='upper right')	
+    fig_1d.savefig(os.path.join(dir_out, 'a2significance_vs_a2a4_Teff.jpg'), dpi=300)
+
+    classes_a2=DoClassesRotvsRot(ModelCode, ProductsOdds_1001_vs_1101, ProductsRot_1001_vs_1101, 'a2', 'a1',
+                      r"$a_1$ (nHz)", r"$a_2$ (nHz)", ProbaThresholds=ProbaThresholds, 
+                      ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
+                      MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
+                      do_hline=[True,0])
+    classes_a4=DoClassesRotvsRot(ModelCode, ProductsOdds_1001_vs_1101, ProductsRot_1001_vs_1101, 'a4', 'a1',
+                      r"$a_1$ (nHz)", r"$a_4$ (nHz)", ProbaThresholds=ProbaThresholds, 
+                      ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
+                      MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
+                      do_hline=[True,0])
+    fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
+    plot_ajAlm(classes_a2, ax=ax[0])
+    plot_ajAlm(classes_a4, ax=ax[1])
+    ax[0].set_title(r"$a_3$ significance")
+    # Handling legends
+    ax[0].legend(fontsize=10, loc='upper right')	
+    fig_1d.savefig(os.path.join(dir_out, 'a2significance_vs_a2a4_a1.jpg'), dpi=300)
+
     '''
     #
     # a2AR and a4 function of M
