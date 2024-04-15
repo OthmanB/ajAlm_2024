@@ -307,9 +307,11 @@ class TestProcessProducts(unittest.TestCase):
         with open(temp.name, 'r') as f:
             content = f.readlines()
         self.assertIn("#This is a test header\n", content[0])
-        labels=content[1][1:].split()
-        vals1=content[2].split()
-        vals2=content[3].split()
+        self.assertIn("x= X-Label\n", content[1])
+        self.assertIn("#y= Y-Label\n", content[2])
+        labels=content[3][1:].split()
+        vals1=content[4].split()
+        vals2=content[5].split()
         expected_labels=["key", "StarID", "x", "y", "err_x_inf", "err_x_sup", "err_y_inf", "err_y_sup", "Pr", "color", "marker", "fillstyle", "label"]
         expected_vals1=["key1","star1","1.1","3.3","0.1", "0.15","0.3", "0.35", "0.9","red","o","full","This_is_a_test_label_for_the_unit_test"]
         expected_vals2=["key1", "star2", "2.2", "4.4", "0.2", "0.25", "0.4", "0.45", "0.8", "red", "o", "full", "This_is_a_test_label_for_the_unit_test"]

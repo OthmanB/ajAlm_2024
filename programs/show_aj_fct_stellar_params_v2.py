@@ -774,27 +774,18 @@ def DoClassesExternalvsRot(ModelCode, ProductsOdds, ProductsRot,ExternalData, Ro
     return classes
 
 def WriteDataClass(fileout, classes, header="#Tabular representation of the data class used in the plots\n"):
+    header=header + "#x= " + classes["xlabel"] +"\n"
+    header=header + "#y= " + classes["ylabel"] +"\n"
     excluded_keys=['xlabel', 'ylabel', 'hline']
     allowed_keys=[]
     for key in classes.keys():
         if key not in excluded_keys:
             allowed_keys.append(key)
+    variables=""
     for key in allowed_keys:
         labels="!{0:<5} {1:<15} {2:<15} {3:<15} {4:<15} {5:<15} {6:<15} {7:<15} {8:<10} {9:<10} {10:<5} {11:<8} {12:<15}\n".format("key", "StarID", "x", "y", "err_x_inf","err_x_sup", "err_y_inf", "err_y_sup", "Pr", "color", "marker", "fillstyle", "label")
-        variables=""
         for i in range(len(classes[key]["starID"])):
-            print("key:", key)
-            print("starID: ", classes[key]["starID"][i])
-            print("x: ", classes[key]["x"][i])
-            print("y: ", classes[key]["y"][i])
-            print("err_x: ", classes[key]["err_x"][i])
-            print("err_y: ", classes[key]["err_y"][i])
-            print("Probability: ", classes[key]["Probability"][i])
-            print("color: ", classes[key]["color"])
-            print("marker:",  classes[key]["marker"])
-            print("fillstyle : ", classes[key]["fillstyle"])
-            print("label: ", classes[key]["label"])
-            variables=variables + " {0:<5} {1:<15} {2:<15.5} {3:<15.5} {4:<15.5} {5:<15.5} {6:<15.5} {7:<15.5} {8:<10.2} {9:<10} {10:<8} {11:<10} {12:<}\n".format(key, classes[key]["starID"][i], 
+            variables=variables + " {0:<5} {1:<15} {2:<15.5f} {3:<15.5f} {4:<15.5f} {5:<15.5f} {6:<15.5f} {7:<15.5f} {8:<10.2f} {9:<10} {10:<8} {11:<10} {12:<}\n".format(key, classes[key]["starID"][i], 
                                                 classes[key]["x"][i], classes[key]["y"][i], 
                                                 classes[key]["err_x"][0][i],classes[key]["err_x"][1][i],
                                                 classes[key]["err_y"][0][i],classes[key]["err_y"][1][i],
@@ -864,13 +855,13 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
                       ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                       MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
                       do_hline=[True,0])
-    WriteDataClass(imgfile + "_a2.res", classes_a2, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
+    WriteDataClass(os.path.join(dir_out, imgfile + "_a2.res"), classes_a2, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
     classes_a4=DoClassesRotvsRot(ModelCode, ProductsOdds_1101_vs_1111, ProductsRot_1101_vs_1111, 'a4', 'a1',
                       r"$a_1$ (nHz)", r"$a_4$ (nHz)", ProbaThresholds=ProbaThresholds, 
                       ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                       MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
                       do_hline=[True,0])
-    WriteDataClass(imgfile + "_a4.res", classes_a4, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
+    WriteDataClass(os.path.join(dir_out, imgfile + "_a4.res"), classes_a4, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
     fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
     plot_ajAlm(classes_a2, ax=ax[0])
     plot_ajAlm(classes_a4, ax=ax[1])
