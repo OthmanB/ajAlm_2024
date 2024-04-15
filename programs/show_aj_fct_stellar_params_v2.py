@@ -828,6 +828,7 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
     # a3  significance using 1101 vs 1111
     set_dir = "1101_vs_1111"
     ModelCode="1111"
+    imgfile='a3significance_vs_a2a4_Teff.jpg'
     ProductsOdds_1101_vs_1111, ProductsRot_1101_vs_1111=get_productsdata(os.path.join(products_root_dir , set_dir), core_odds_files=core_odds_files, core_rot_files=core_rot_files,
                      odds_keys=odds_keys,
                      confidence_rot=confidence_rot)
@@ -848,8 +849,9 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
     ax[0].set_title(r"$a_3$ significance (1101 vs 1111)")
     # Handling legends
     ax[0].legend(fontsize=10, loc='upper right')	
-    imgfile='a3significance_vs_a2a4_Teff.jpg'
     fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
+    # -- 
+    imgfile="a3significance_vs_a2a4_a1.jpg"
     classes_a2=DoClassesRotvsRot(ModelCode, ProductsOdds_1101_vs_1111, ProductsRot_1101_vs_1111, 'a2', 'a1',
                       r"$a_1$ (nHz)", r"$a_2$ (nHz)", ProbaThresholds=ProbaThresholds, 
                       ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
@@ -868,12 +870,13 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
     ax[0].set_title(r"$a_3$ significance")
     # Handling legends
     ax[0].legend(fontsize=10, loc='upper right')	
-    fig_1d.savefig(os.path.join(dir_out, 'a3significance_vs_a2a4_a1.jpg'), dpi=300)
+    fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
 
 
     # a2  significance using 1001 vs 1101
     set_dir = "1001_vs_1101"
     ModelCode="1101"
+    imgfile='a2significance_vs_a2a4_Teff.jpg'
     ProductsOdds_1001_vs_1101, ProductsRot_1001_vs_1101=get_productsdata(os.path.join(products_root_dir , set_dir), core_odds_files=core_odds_files, core_rot_files=core_rot_files,
                      odds_keys=odds_keys,
                      confidence_rot=confidence_rot)
@@ -883,36 +886,42 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
                         ProbaThresholds=ProbaThresholds, 
                         ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                         MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"])
+    WriteDataClass(os.path.join(dir_out, imgfile + "_a2.res"), classes_a4, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
     classes_a4=DoClassesExternalvsRot(ModelCode, ProductsOdds_1001_vs_1101, ProductsRot_1001_vs_1101,
                         NonSeismic, "a4", "Teff_SDSS", "Tot_eTeff", r"T$_{eff}$ (K)", r"$a_4$ (nHz)", do_hline=[True,0],
                         ProbaThresholds=ProbaThresholds, 
                         ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                         MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"])
+    WriteDataClass(os.path.join(dir_out, imgfile + "_a4.res"), classes_a4, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
+    
     fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
     plot_ajAlm(classes_a2, ax=ax[0])
     plot_ajAlm(classes_a4, ax=ax[1])
     ax[0].set_title(r"$a_2$ significance (1001 vs 1101)")
     # Handling legends
     ax[0].legend(fontsize=10, loc='upper right')	
-    fig_1d.savefig(os.path.join(dir_out, 'a2significance_vs_a2a4_Teff.jpg'), dpi=300)
-
+    fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
+    # --
+    imgfile='a2significance_vs_a2a4_a1.jpg'
     classes_a2=DoClassesRotvsRot(ModelCode, ProductsOdds_1001_vs_1101, ProductsRot_1001_vs_1101, 'a2', 'a1',
                       r"$a_1$ (nHz)", r"$a_2$ (nHz)", ProbaThresholds=ProbaThresholds, 
                       ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                       MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
                       do_hline=[True,0])
+    WriteDataClass(os.path.join(dir_out, imgfile + "_a2.res"), classes_a4, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
     classes_a4=DoClassesRotvsRot(ModelCode, ProductsOdds_1001_vs_1101, ProductsRot_1001_vs_1101, 'a4', 'a1',
                       r"$a_1$ (nHz)", r"$a_4$ (nHz)", ProbaThresholds=ProbaThresholds, 
                       ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                       MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
                       do_hline=[True,0])
+    WriteDataClass(os.path.join(dir_out, imgfile + "_a4.res"), classes_a4, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
     fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
     plot_ajAlm(classes_a2, ax=ax[0])
     plot_ajAlm(classes_a4, ax=ax[1])
     ax[0].set_title(r"$a_3$ significance")
     # Handling legends
     ax[0].legend(fontsize=10, loc='upper right')	
-    fig_1d.savefig(os.path.join(dir_out, 'a2significance_vs_a2a4_a1.jpg'), dpi=300)
+    fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
 
     '''
     #
