@@ -369,7 +369,8 @@ def do_all_analyse_ajAlm(dir_tamcmc_root, dir_out_root, data_source, prefix="kpl
 					if k == 0:
 						modelcode=str(modeltypes[i][k])
 					else:
-						modelcode=modelcode+ "_" + str(modeltypes[i][k])
+						#modelcode=modelcode+ "_" + str(modeltypes[i][k])
+						modelcode=modelcode + str(modeltypes[i][k])
 				# Process the MCMC content
 				labels, units, ajAlm_stats, inc_stats=show_ajAlm_pdfs(dir_model, keep_aj=keep_aj, file_out=outfile, binning=40, 
 							ignore_slope=True, idlfiles=False, show_inc=show_inc,
@@ -532,6 +533,8 @@ def show_version(verbose=True):
 	version="1.31"
 	if verbose == True:
 		print("show_pdf_aj_obs version {}".format(version), flush=True)
+		print("Updated on 1 May 2024: ")
+		print("   - Writting the modelCode without underscore in the statistical summary files. This to be consistent with Odds ratio summary file. e.g. 1201_Gate_decompose_-1 -> 1201Gatedecompose-1")	
 		print("Updated on 09 Apr 2024: ", flush=True)
 		print("   - Adding flush=True for all print to ensure that log files get updated in real time", flush=True)
 		print("   - adding user-defined tmpdir for mcmc products using bin2txt etc...")
