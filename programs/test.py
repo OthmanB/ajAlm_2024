@@ -10,31 +10,124 @@ from show_aj_fct_stellar_params_v2 import probability_composer,query_proba_from_
     Test of the probability_composer
 '''
 class TestProcessProducts(unittest.TestCase):
-    def test_probability_composer(self):
-        print(colored(" Testing probability_composer()....", "green"), end="", flush=True)
+    def test_probability_composer_basic(self):
+        print(colored(" Testing probability_composer()....", "green"), flush=True)
         # Define input
         ProductsOdds = {
                         "header": "# Test header Odds Ratio",
-                        "label": ["model1", "model2", "model3"], 
+                        "label": ["model1", "model2", "model3", "model4"], 
                         "StarID": ["Star1", "Star2"],
-                        "Probabilities": {"key1": np.array([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]])}, 
+                        "Probabilities": {"key1": np.array([[10, 20, 29, 41], [5, 5, 60, 30]], dtype=float)}, 
                         "Nrows": 2, 
                         "Ncols":3
                         }
         ProductsRot = {"header": "# Test header Rotation",
-                       "label": ["model1", "model2", "model3"],
-                        "unit":["U1", "U2", "U3"],
+                       "label": ["model1", "model2", "model3", "model4"],
+                        "unit":["U1", "U2", "U3", "U4"],
                         "StarID": ["Star1", "Star2"],
-                        "data": {"key0": np.array([[-1, -2, -3],[0,10,20]])}
+                        "data": {"key0": np.array([[-1, -2, -3, -4],[0,10,20,30]],dtype=float)}
                         }
         Groups = [["model1", "model2"], ["model3"]]
-        RecomposedProductsOdds, RecomposedProductsRot = probability_composer(ProductsOdds, ProductsRot, Groups, DoRule2=False)
-        # Check results
+        print(colored("\t Testing with DoRenormalise = False.....", "green"), end="", flush=True)
+        RecomposedProductsOdds, RecomposedProductsRot = probability_composer(ProductsOdds, ProductsRot, Groups, DoRenormalise=False)
+        # Check results keeping the normalisation over model 1,2,3 and 4
         expected_RecProductsOdds = copy.deepcopy(ProductsOdds)
-        np.testing.assert_allclose(RecomposedProductsOdds["Probabilities"]["key1"], np.array([[0.3, 0.3, 0.3], [0.9, 0.9, 0.6]]), atol=1e-8, rtol=1e-5)
+        expectations= np.array([[30, 30, 29, 41], [10, 10, 60, 30]])
+        np.testing.assert_allclose(RecomposedProductsOdds["Probabilities"]["key1"], expectations, atol=1e-8, rtol=1e-5)
         self.assertEqual(RecomposedProductsOdds["header"], expected_RecProductsOdds["header"])
         self.assertEqual(RecomposedProductsOdds["label"], expected_RecProductsOdds["label"])
         print(colored("Passed", "green"), flush=True)
+
+        print(colored("\t Testing with DoRenormalise = True.....", "green"), end="", flush=True)
+        RecomposedProductsOdds, RecomposedProductsRot = probability_composer(ProductsOdds, ProductsRot, Groups,  DoRenormalise=True)
+        # Check results renormalised on model 1,2 and 3. Model 4 Probability must be 0 after renormalisation in this test
+        expected_RecProductsOdds = copy.deepcopy(ProductsOdds)
+        norm_star1=30+29
+        norm_star2=10+60
+        expectations= 100.*np.array([[30/norm_star1, 30/norm_star1, 29/norm_star1, 0.], [10/norm_star2, 10/norm_star2, 60/norm_star2, 0.]])
+        np.testing.assert_allclose(RecomposedProductsOdds["Probabilities"]["key1"], expectations, atol=1e-8, rtol=1e-5)
+        self.assertEqual(RecomposedProductsOdds["header"], expected_RecProductsOdds["header"])
+        self.assertEqual(RecomposedProductsOdds["label"], expected_RecProductsOdds["label"])
+        print(colored("Passed", "green"), flush=True)
+
+    def test_probability_composer_second(self):
+        # Define the test data
+        ProductsOdds = {
+            "label": ["1001", "1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"],
+            "Probabilities": {
+                "key1": np.array([[1.0, 9, 15, 20, 25, 12, 18], [0.5, 4.5, 10, 15, 20, 23, 27]]),
+                "key2": np.array([[1, 3, 6, 18, 22, 24, 26], [0.5, 1, 2.5, 5, 7, 16, 68]])
+            },
+            "Nrows": 2
+        }
+        ProductsRot = {
+            "label": ["1001", "1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"],
+            "data": {
+                "key1": np.array([[0.1, 1, 2, 3, 4, 5, 6], [2.1, 7, 8, 9, 10, 11, 12]]),
+                "key2": np.array([[0.001, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06], [0.01, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12]])
+            },
+            "Nrows": 2
+        }
+
+        expected_RecomposedProductsRot = copy.deepcopy(ProductsRot)
+
+        # Test case 1: Grouping Gate vs Triangle models with DoRenormalise = True and EnforceNorm = False  
+        print(colored("\t Second Testing with probability_composer with DoRenormalise = False.....", "green"), end="", flush=True)
+            
+        Groups = [
+            ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2"],
+            ["1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]
+        ]
+        DoRenormalise = False
+        EnforceNorm = False
+
+        expected_RecomposedProductsOdds = {
+            "label": ["1001", "1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"],
+            "Probabilities": {
+                "key1": np.array([[1., 44., 44., 44., 55., 55., 55.], [0.5, 29.5, 29.5, 29.5, 70., 70., 70.]]),
+                "key2": np.array([[1., 27., 27., 27., 72., 72., 72.], [0.5, 8.5, 8.5, 8.5, 91., 91., 91.]])
+            },
+            "Nrows": 2
+        }
+
+        RecomposedProductsOdds, RecomposedProductsRot = probability_composer(ProductsOdds, ProductsRot, Groups, DoRenormalise, EnforceNorm)
+        
+        err_msg = colored("Failed.\n\t Test case 1 failed for RecomposedProductsOdds and DoRenormalise = True: tolerance exceeded in the Probabilities outputs","red")
+        np.testing.assert_allclose(RecomposedProductsOdds["Probabilities"]["key1"], expected_RecomposedProductsOdds["Probabilities"]["key1"], atol=1e-8, rtol=1e-5, err_msg=err_msg)
+        np.testing.assert_allclose(RecomposedProductsOdds["Probabilities"]["key2"], expected_RecomposedProductsOdds["Probabilities"]["key2"], atol=1e-8, rtol=1e-5, err_msg=err_msg)
+        err_msg = colored("Failed.\n\t Test case 1 failed for RecomposedProductsRot and DoRenormalise = True: output data arrays are different","red")
+        np.testing.assert_array_equal(RecomposedProductsRot["data"]["key1"], expected_RecomposedProductsRot["data"]["key1"], err_msg=err_msg)
+        np.testing.assert_array_equal(RecomposedProductsRot["data"]["key2"], expected_RecomposedProductsRot["data"]["key2"], err_msg=err_msg)
+        print(colored("\t Passed", "green"), flush=True)
+        
+        # --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+        # Test case 2: Grouping Gate vs Triangle models with DoRenormalise = True and EnforceNorm = True    
+        print(colored("\t Second Testing with probability_composer with DoRenormalise = True.....", "green"), end="", flush=True)
+        Groups = [
+            ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2"],
+            ["1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]
+        ]
+        DoRenormalise = True
+        EnforceNorm = False
+
+        expected_RecomposedProductsOdds = {
+            "label": ["1001", "1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"],
+            "Probabilities": {
+                "key1": 100.*np.array([[0., 44./99, 44./99, 44./99, 55./99, 55./99, 55./99], [0., 29.5/99.5, 29.5/99.5, 29.5/99.5, 70./99.5, 70./99.5, 70./99.5]]),
+                "key2": 100.*np.array([[0., 27./99, 27./99, 27./99, 72./99, 72./99, 72./99], [0., 8.5/99.5, 8.5/99.5, 8.5/99.5, 91./99.5, 91./99.5, 91./99.5]])
+            },
+            "Nrows": 2
+        }
+
+        RecomposedProductsOdds, RecomposedProductsRot = probability_composer(ProductsOdds, ProductsRot, Groups, DoRenormalise, EnforceNorm)
+
+        err_msg = colored("\n\t Test case 2 failed for RecomposedProductsOdds and DoRenormalise = True: tolerance exceeded in the Probabilities outputs","red")
+        np.testing.assert_allclose(RecomposedProductsOdds["Probabilities"]["key1"], expected_RecomposedProductsOdds["Probabilities"]["key1"], atol=1e-8, rtol=1e-5, err_msg=err_msg)
+        np.testing.assert_allclose(RecomposedProductsOdds["Probabilities"]["key2"], expected_RecomposedProductsOdds["Probabilities"]["key2"], atol=1e-8, rtol=1e-5, err_msg=err_msg)
+        err_msg = colored("\n\t Test case 2 failed for RecomposedProductsRot and DoRenormalise = True: output data arrays are different","red")
+        np.testing.assert_array_equal(RecomposedProductsRot["data"]["key1"], expected_RecomposedProductsRot["data"]["key1"], err_msg=err_msg)
+        np.testing.assert_array_equal(RecomposedProductsRot["data"]["key2"], expected_RecomposedProductsRot["data"]["key2"], err_msg=err_msg)
+        print(colored("\t Passed", "green"), flush=True)
 
     def setUpExternal(self):
         '''
