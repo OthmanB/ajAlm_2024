@@ -3,7 +3,7 @@ from matplotlib.patches import Rectangle
 import numpy as np
 
 def Draw_BoxAndWiskers_horizontal(y, stats, extra=[], color=['black', 'black', 'black'], 
-                                  fill=None, width=0.05, linewidth=1, ax=None, show_stats=False, fontsize=12):
+                                  fill=None, width=0.05, linewidth=1, ax=None, show_stats=False, fontsize=12, text=None):
     '''  
         A simplified version for the horizontal whiskers plot.
         The one given by matplotlib use the whole data which
@@ -24,6 +24,7 @@ def Draw_BoxAndWiskers_horizontal(y, stats, extra=[], color=['black', 'black', '
         linewidth : size of all the lines in the plot
         ax: ploting zone
         show_stats: If True, show the values of s0, s1, m, s2, extra (if element 4 is True) and s3
+        text: If set to a string or a number, show that string or number inside the whisker box 
     '''
     # Check the parameters.
     if ax == None:
@@ -66,9 +67,12 @@ def Draw_BoxAndWiskers_horizontal(y, stats, extra=[], color=['black', 'black', '
                 if e[4] == True:
                     str_f=eval_precision_txt(e[0])
                     ax.text(e[0], y_txt_extra, str_f.format(e[0]) , verticalalignment='center', horizontalalignment='center', color='red', fontsize=fontsize)
+    if text != None:
+        str_f=eval_precision_txt(text)
+        ax.text(m, y, str_f.format(text) , verticalalignment='center', horizontalalignment='center', color='black', fontsize=fontsize, rotation=0)
 
 def Draw_BoxAndWiskers_vertical(x, stats, extra=[], color=['black', 'black', 'black'], 
-                                  fill=None, width=0.05, linewidth=1, ax=None, show_stats=False, fontsize=12):
+                                  fill=None, width=0.05, linewidth=1, ax=None, show_stats=False, fontsize=12, text=None):
     '''  
         A simplified version for the horizontal whiskers plot.
         The one given by matplotlib use the whole data which
@@ -89,6 +93,7 @@ def Draw_BoxAndWiskers_vertical(x, stats, extra=[], color=['black', 'black', 'bl
         linewidth : size of all the lines in the plot
         ax: ploting zone
         show_stats: If True, show the values of s0, s1, m, s2, extra (if element 4 is True) and s3
+        text: If set to a string or a number, show that string or number inside the whisker box 
     '''
     # Check the parameters.
     if ax == None:
@@ -131,6 +136,10 @@ def Draw_BoxAndWiskers_vertical(x, stats, extra=[], color=['black', 'black', 'bl
                 if e[4] == True:
                     str_f=eval_precision_txt(e[0])
                     ax.text(x_txt_extra, e[0],  str_f.format(e[0]) , verticalalignment='center', horizontalalignment='center', color='red', fontsize=fontsize)
+    if text != None:
+        str_f=eval_precision_txt(text)
+        ax.text(y, m, str_f.format(text) , verticalalignment='center', horizontalalignment='center', color='black', fontsize=fontsize, rotation=0)
+
 
 def eval_precision_txt(s):
     if len(str(np.fix(s)))<=3:
