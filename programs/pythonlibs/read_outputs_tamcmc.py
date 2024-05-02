@@ -220,8 +220,10 @@ def test_getmodel_bin():
 	x, model, params_dic=getmodel_bin(dir_tamcmc_outputs, model_name, params, plength, xr, cpp_path=cpp_path, outdir=outdir, read_output_params=True)
 	os.chdir('source')
 
-def getstats_bin(dir_tamcmc_outputs, process_name, phase='A', chain=0, first_index=0, period=1, 
-				 erase_tmp=True, cpp_path='cpp_prg/', outdir='tmp/', verbose=False):
+
+def getstats_bin(dir_tamcmc_outputs, process_name, phase='A', chain=0, first_index=0, 
+					period=1, erase_tmp=True, cpp_path='cpp_prg/', outdir='tmp/',
+					version="1.86.6", verbose=False):
 	'''
 		Convert a binary output file from the tamcmc process into a simple text format
 		The function makes use of the get_stats program created upon compilation of the tamcmc program
@@ -230,15 +232,23 @@ def getstats_bin(dir_tamcmc_outputs, process_name, phase='A', chain=0, first_ind
 		phase: The phase of the analysis
 		chain: The chain index that need to be unpacked
 		outfile: The name of the output file
+		version: If version="1.86.6" (default), use the boost::option system. Otherwise, use the old option system
 		18 nov 2022 Addition: introducing first_index and period. REQUIRES getstats compiles with TAMCMC v>1.83.5
+		18 Dec 2023 Addition: version 1.86.6 new statemen (see condition). 
 	'''
 	outfile=outdir + '/posteriors.txt'
-	#core_filename=dir_tamcmc_outputs + '/' + process_name + '/outputs/' + process_name + '_' + phase + '_stat_criteria' 
 	core_filename=os.path.join(dir_tamcmc_outputs,process_name, "outputs", process_name + '_' + phase + '_stat_criteria')
 	if verbose == True:
-		call([cpp_path + "./getstats", core_filename, str(chain), outfile, str(first_index), str(-1), str(period)])
+		if version != "1.86.6":
+			call([cpp_path + "./getstats", core_filename, str(chain), outfile, str(first_index), str(-1), str(period)])
+		else:
+			call([cpp_path + "./getstats", "-i", core_filename, "-o", outfile, "-c", str(chain), "-S", str(first_index), "-L",str(-1), "-p", str(period)])
 	else:
-		call([cpp_path + "./getstats", core_filename, str(chain), outfile, str(first_index), str(-1), str(period)], stdout=DEVNULL, stderr=DEVNULL)
+		if version != "1.86.6":
+			call([cpp_path + "./getstats", core_filename, str(chain), outfile, str(first_index), str(-1), str(period)], stdout=DEVNULL, stderr=DEVNULL)
+		else:
+			call([cpp_path + "./getstats", "-i", core_filename, "-o", outfile, "-c", str(chain), "-S", str(first_index), "-L",str(-1), "-p", str(period)], stdout=DEVNULL, stderr=DEVNULL)
+
 	loglikelihood, logprior, logposterior, header, labels=getstats_txt(outfile)
 	if erase_tmp == True:
 		process = os.remove(outfile)
@@ -813,7 +823,9 @@ def read_global_likelihood(filein, evidence_only=True, bootstrap_on=False):
 	return evidence, err_evidence
 
 def version():
-	print('read_output_tacmcmc version 2.23')
+	print('read_output_tacmcmc version 2.231')
+	print("  Changes since 2.231: ")
+	print("     - Update of getstats to handle the new option format")
 	print('  Changes since 2.23: ')
 	print("     - Adding the getevidence which calls the C++ program of same name available since >1.86.75. Note that outputs of C++ getevidence are readable with read_global_likelihood()")
 	print("     - Using os.path.join() instead of a the + operation to deal with directories")
