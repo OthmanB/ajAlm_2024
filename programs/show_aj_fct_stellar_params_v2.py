@@ -241,7 +241,14 @@ def query_proba_from_ProductsOdds(ProductsOdds, ID, ModelCode=None, Confidence=N
         raise(colored(err_msg, "red"))
 
     if ModelCode != None:
-        index=ProductsOdds["label"].index(ModelCode)
+        try:
+            index=ProductsOdds["label"].index(ModelCode)
+        except ValueError:
+            err_msg="Error: Cannot find the requested ModelCode={} in ProductsOdds['label']".format(ModelCode)
+            print(colored("List of available ModelCode in ProductsOdds['label']:", "red"))
+            for l in ProductsOdds["label"]:
+                print("\t" + colored(l, "red"))
+            raise ValueError(colored(err_msg, "red"))
         if isinstance(Confidence, list) == True:
             data={}
             for key in Confidence:
@@ -337,7 +344,7 @@ def probability_composer(ProductsOdds, ProductsRot, Groups, DoRenormalise=False,
                         RecomposedProductsOdds["Probabilities"][key][i,index]=Pn*100. # Here we convert it back to percentage. This is the final result
         if DoRenormalise == True:
             # Re normalise the probabilities to 1 using the new probabilities Pn calculated for each group
-            Pnorm=np.zeros(ProductsOdds["Nrows"], dtype=float) # Used to renormalise the probabilities to 1
+            Pnorm=np.zeros(ProductsOdds["Nrows"], dtype=float) # Used to renormalise the probabilities to 1 
             #print(colored("Pnorm=","light_cyan"), Pnorm, flush=True)
             for i in range(ProductsOdds["Nrows"]):
                 indexes=[]
@@ -351,8 +358,8 @@ def probability_composer(ProductsOdds, ProductsRot, Groups, DoRenormalise=False,
                         if RecomposedProductsOdds["Probabilities"][key][i,index] not in Pnew:
                             Pnorm[i]=Pnorm[i] + RecomposedProductsOdds["Probabilities"][key][i,index]
                             Pnew.append(RecomposedProductsOdds["Probabilities"][key][i,index])
-                            print(colored(" Index :", "light_cyan"), index, colored(" Pr:", "light_cyan"), RecomposedProductsOdds["Probabilities"][key][i,index], flush=True)
-                print(colored("Pnorm[{}] : ".format(i), "yellow"), Pnorm[i], flush=True)
+                            #print(colored(" Index :", "light_cyan"), index, colored(" Pr:", "light_cyan"), RecomposedProductsOdds["Probabilities"][key][i,index], flush=True)
+                #print(colored("Pnorm[{}] : ".format(i), "yellow"), Pnorm[i], flush=True)
                 if Pnorm[i] >= 1.:
                     if EnforceNorm == True:
                         err_msg="Error: The sum of the probabilities for the median is greater than 100 percent. Cannot renormalise. Debug required."
@@ -367,19 +374,157 @@ def probability_composer(ProductsOdds, ProductsRot, Groups, DoRenormalise=False,
                 else:
                     # If there is no strange behaviour, we renormalise the probabilities
                     for index in indexes:                
-                        print(colored("\t Before renormalisation (should be a fraction): ", "yellow"), RecomposedProductsOdds["Probabilities"][key][i,index], flush=True)
+                        #print(colored("\t Before renormalisation (should be a fraction): ", "yellow"), RecomposedProductsOdds["Probabilities"][key][i,index], flush=True)
                         if RecomposedProductsOdds["Probabilities"][key][i,index] != 0:
                             RecomposedProductsOdds["Probabilities"][key][i,index]=100.*RecomposedProductsOdds["Probabilities"][key][i,index]/Pnorm[i]
                         if np.isnan(RecomposedProductsOdds["Probabilities"][key][i,index]) == True:
                             err_msg=colored("Error: NaN value detected in RecomposedProductsOdds['Probabilities'][{}][{},{}]".format(key,i,index), "red")
                             raise ValueError(err_msg)
-                        print(colored("\t After renormalisation: (should be a percentage)", "blue"), RecomposedProductsOdds["Probabilities"][key][i,index], flush=True)
+                        #print(colored("\t After renormalisation: (should be a percentage)", "blue"), RecomposedProductsOdds["Probabilities"][key][i,index], flush=True)
                     # Any Probability associated to labels that were not in one of the groups provided by the user will be set to 0
                     for index in range(len(RecomposedProductsOdds["label"])):
                         if index not in indexes:
                             RecomposedProductsOdds["Probabilities"][key][:, index] = 0
     return RecomposedProductsOdds, RecomposedProductsRot
 
+def ProbabilityPeakGroup(ModelFamily, ProductsOdds, ProductsRot, ExternalData,
+                       Ylabel, Xlabel, xlabel_plot, ylabel_plot, xvar_is_external, ExternalXerrlabel=None, 
+                       ProbaThresholds=[50, 70, 90],
+                       ColorsThresholds=["LightGray", "Gray", "Blue", "Green"],
+                       DoRenormalise=[False,"1001"]):
+    """
+    Function that extract a model code 1201* or 1211* and then 
+    creates a formated output using [] in order to show the highest probability in an encoded way.
+
+    Args:
+        ModelFamily (string): The Familiy of the model code. That is either 1201 or 1211.
+        ProductsOdds (dict): The odds ratio products data. Defaults to None. If not provided, it will be loaded.
+        ProductsRot (dict): The rotation products data. Defaults to None. If not provided, it will be loaded.
+        xvar (str): The name of the x-variable.
+        err_xvar (str): The name of the error in the x-variable.
+        xvar_is_external (bool): Flag indicating if the x-variable is external.
+        ProbaThresholds (list, optional): The probability thresholds for the odds ratio. Defaults to [50, 70, 90].
+        ColorsThresholds (list, optional): The colors for the thresholds. Defaults to ["LightGray", "Gray", "Blue", "Green"].
+    """
+    # Imutable variables
+    excluded_keys=['xlabel', 'ylabel', 'hline']
+    ConfidenceKeys=["16", "50", "84"]
+    # Define how we plot each subgroups
+    Markers=["o", "s", "D", "o", "s", "D", "v", "^", "P","v", "^", "P"]
+    Fills=['none', 'none', 'none', 'full', 'full', 'full', 'none', 'none', 'none', 'full', 'full', 'full']
+    if ModelFamily not in ["1201", "1211", "12X1"]:
+        raise ValueError("ModelFamily must be either 1201 or 1211.")
+    elif ModelFamily == "1201":
+        Groups=["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2",
+                "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]
+    elif ModelFamily == "1211":
+        Groups=["1211Gatedecompose_-1", "1211Gatedecompose_1", "1211Gatedecompose_2",
+                "1211Triangledecompose_-1", "1211Triangledecompose_1", "1211Triangledecompose_2"]
+    else:
+        Groups=["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2",
+                "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2",
+                "1211Gatedecompose_-1", "1211Gatedecompose_1", "1211Gatedecompose_2",
+                "1211Triangledecompose_-1", "1211Triangledecompose_1", "1211Triangledecompose_2"]
+    # Constructing all of the plot classes for the different ModelCodes within the provided Groups
+    # This is constructed by NOT making subclasses by probability thresholds. Hence the ProbaThresholds=[100]
+    iClass=0
+    for ModelCode in Groups:
+        if xvar_is_external == False:
+            Class=DoClassesRotvsRot(ModelCode, ProductsOdds, ProductsRot, Ylabel, Xlabel,
+                    xlabel_plot, ylabel_plot, ProbaThresholds=[100], 
+                    ColorsThresholds=["Gray"], 
+                    MarkerThresholds=["o"],FillThresholds=['none'],
+                    do_hline=[True,0],  ConfidenceKeys=ConfidenceKeys)
+        else:
+            if ExternalXerrlabel == None:
+                err_msg="Error: The external x-variable (xvar_is_external = True) is requested but no uncertainty column is provided. Debug required."
+                raise ValueError(colored(err_msg, "red"))
+            Class=DoClassesExternalvsRot(ModelCode, ProductsOdds, ProductsRot, ExternalData, Ylabel, Xlabel, ExternalXerrlabel,
+                            xlabel_plot, ylabel_plot, ProbaThresholds=[100], 
+                            ColorsThresholds=["Gray"], 
+                            MarkerThresholds=["o"],FillThresholds=['none'],
+                            do_hline=[True,0],  ConfidenceKeys=ConfidenceKeys)
+        # Check that we indeed have only one key per class
+        allowed_keys=[]
+        for key in Class.keys():
+            if key not in excluded_keys:
+                allowed_keys.append(key)
+        if len(allowed_keys) != 1:
+            err_msg="Error: The class dictionary should contain only one key (key='A') in addition to the three 'global' keys. Debug required."
+            print(colored("Class.keys()= ", "red"), Class.keys())
+            raise ValueError(colored(err_msg, "red"))
+        #ClassGroups.append(Class)
+        # Identify the argmax of "Probability"
+        # First, we initialise the Index_Startlist Array that contain all of the index for the highest probability
+        # Then for each star, get the index of the position in ClassGroups that has the highest probability
+        if iClass == 0:
+            #Index_Starlist=np.zeros(len(Class["A"]["Probability"]), dtype=int)
+            Pr_Starlist=np.zeros(len(Class["A"]["starID"]), dtype=float)
+            Xall=np.zeros(len(Class["A"]["starID"]), dtype=float)
+            Yall=np.zeros(len(Class["A"]["starID"]), dtype=float)
+            Xerrall=np.zeros((2,len(Class["A"]["starID"])), dtype=float)
+            Yerrall=np.zeros((2,len(Class["A"]["starID"])), dtype=float)
+            # Each star must have a different Marker and Fill type because within each class, the ModelCode is not the same
+            MarkerModelCode=[""]*len(Class["A"]["starID"])   #np.zeros(len(Class["A"]["Probability"]), dtype=str) 
+            FillModelCode=[""]*len(Class["A"]["starID"])   #np.zeros(len(Class["A"]["Probability"]), dtype=str)
+        # Update the final values if the Probability is higher only in the currently read "Class"
+        for s in range(len(Class["A"]["starID"])):
+            if Pr_Starlist[s] < Class["A"]["Probability"][s]:  
+                Pr_Starlist[s]=Class["A"]["Probability"][s]
+                if DoRenormalise[0] == True: # We renormalise the probabilities relative to the Reference probability list, if requested
+                    Pr_ref=query_proba_from_ProductsOdds(ProductsOdds, Class["A"]["starID"][s], 
+                            ModelCode=DoRenormalise[1], 
+                            Confidence="median", 
+                            ResolveID=True)
+                    if Pr_ref > 0:
+                        Odds=Pr_Starlist[s]/Pr_ref
+                        Pr_Starlist[s]=100./(1. + 1./Odds)
+                    else:
+                        Pr_Starlist[s]=100.                    
+                Xall[s]=Class["A"]["x"][s]
+                Yall[s]=Class["A"]["y"][s]
+                Xerrall[:,s]=Class["A"]["err_x"][:,s]
+                Yerrall[:,s]=Class["A"]["err_y"][:,s]
+                MarkerModelCode[s]=Markers[iClass]
+                FillModelCode[s]=Fills[iClass]
+        iClass=iClass+1
+    # Now we have the Index_Starlist that contains the index of the highest probability for each star
+    # We can now Initialise and fill the output class that keeps only the highest probability for each star
+    do_hline=[True,0]
+    classes={"xlabel": xlabel_plot,
+            "ylabel": ylabel_plot,
+            "hline": do_hline}
+    # We make a list of unique ID from the ProductsRot["starID"] list
+    starIDAll=[]
+    for star in ProductsOdds["starID"]:
+        s=format_ID(extract_ID_from_processname(star), Ndigits=9) # fix length using Kepler format
+        if s not in starIDAll: # ensure uniqueness of the list
+            starIDAll.append(s)
+    key="A"
+    for i in range(len(ProbaThresholds)+1): 
+        if i==0:
+            PosKeep=np.where(Pr_Starlist <= ProbaThresholds[i])[0]
+            label="P <= {}".format(ProbaThresholds[i])
+        elif i>0 and i<len(ProbaThresholds):
+            PosKeep=np.where(np.bitwise_and(Pr_Starlist > ProbaThresholds[i-1], Pr_Starlist < ProbaThresholds[i]))[0]
+            label="{} < P < {}".format(ProbaThresholds[i-1], ProbaThresholds[i])
+        else:
+            PosKeep=np.where(Pr_Starlist >= ProbaThresholds[i-1])[0]
+            label="P >= {}".format(ProbaThresholds[i-1])
+        classes[key]={"label": label,
+                "color":ColorsThresholds[i],
+                "marker":[MarkerModelCode[j] for j in PosKeep],
+                "fillstyle": [FillModelCode[j] for j in PosKeep], 
+                "positions": PosKeep,
+                "x": Xall[PosKeep],
+                "y": Yall[PosKeep],
+                "err_x":Xerrall[:,PosKeep],
+                "err_y":Yerrall[:,PosKeep],
+                "Probability":Pr_Starlist[PosKeep],
+                "starID":[starIDAll[j] for j in PosKeep]
+            }
+        key=increment_letter(key)
+    return classes
 
 def propag_err_theta_min_max(theta0, delta, err_theta0, err_delta):
     '''
@@ -593,11 +738,33 @@ def plot_ajAlm(classes, file_out=None, ax=None):
             allowed_keys.append(key)
     if ax == None:
         fig_1d, ax = plt.subplots(1,1, figsize=(12, 6))
+
     for key in allowed_keys:
-        ax.errorbar(classes[key]["x"], classes[key]["y"], 
-                        xerr=classes[key]["err_x"], yerr=classes[key]["err_y"], 
-                        marker=classes[key]["marker"],linestyle='', color=classes[key]["color"], fillstyle=classes[key]["fillstyle"],
-                        label=classes[key]["label"])
+        # convert marker, color and fillstyle into arrays
+        if isinstance(classes[key]["marker"], str):
+            markers = [classes[key]["marker"]]*len(classes[key]["x"])
+        else:
+            markers=classes[key]["marker"]
+        if isinstance(classes[key]["color"], str):
+            colors = [classes[key]["color"]]*len(classes[key]["x"])
+        else:
+            colors=classes[key]["color"]
+        if isinstance(classes[key]["fillstyle"], str):
+            fillstyles = [classes[key]["fillstyle"]]*len(classes[key]["x"])
+        else:
+            fillstyles=classes[key]["fillstyle"]
+        # plot each point individually with error bars
+        if len(classes[key]["x"]) != 0:
+            ax.errorbar(classes[key]["x"], classes[key]["y"], 
+                    xerr=classes[key]["err_x"], yerr=classes[key]["err_y"], 
+                    linestyle='', color=colors[0], marker="none", fillstyle="none",
+                    label=classes[key]["label"])
+            for i in range(len(classes[key]["x"])):
+                ax.plot(classes[key]["x"][i], classes[key]["y"][i], 
+                    marker=markers[i], 
+                    fillstyle=fillstyles[i], 
+                    color=colors[i], label=None)
+            
         if (classes["hline"][0]):
             ax.axhline(classes["hline"][1], linestyle='--', color='black')
         ax.set_ylabel(classes["ylabel"])
@@ -606,6 +773,7 @@ def plot_ajAlm(classes, file_out=None, ax=None):
         # Handling legends
         ax.legend(fontsize=10, loc='upper left')	
         fig_1d.savefig(file_out, dpi=300)
+    #exit()
 
 def increment_letter(letter, increment=1):
     '''
@@ -658,22 +826,38 @@ def DoClassesRotvsRot(ModelCode, ProductsOdds, ProductsRot, Ylabel, Xlabel,
         j=j+1
     # And Finally we deal with the color coding and the properties of the classes len(ProbaThresholds)+1
     # Classes corresponding to the ProbaThresholds
-    for i in range(len(ProbaThresholds)+1): 
-        if i==0:
-            PosKeep=np.where(Pall <= ProbaThresholds[i])[0]
-            label="P <= {}".format(ProbaThresholds[i])
-        elif i>0 and i<len(ProbaThresholds):
-            PosKeep=np.where(np.bitwise_and(Pall > ProbaThresholds[i-1], Pall < ProbaThresholds[i]))[0]
-            label="{} < P < {}".format(ProbaThresholds[i-1], ProbaThresholds[i])
-        else:
-            PosKeep=np.where(Pall >= ProbaThresholds[i-1])[0]
-            label="P >= {}".format(ProbaThresholds[i-1])
-        #print(" >>>> PosKeep : ", PosKeep)
-        # Define symetrical errors for the ExternalData parameters as the external data always contain symetrical errors
+    if len(ProbaThresholds) > 1:
+        for i in range(len(ProbaThresholds)+1): 
+            if i==0:
+                PosKeep=np.where(Pall <= ProbaThresholds[i])[0]
+                label="P <= {}".format(ProbaThresholds[i])
+            elif i>0 and i<len(ProbaThresholds):
+                PosKeep=np.where(np.bitwise_and(Pall > ProbaThresholds[i-1], Pall < ProbaThresholds[i]))[0]
+                label="{} < P < {}".format(ProbaThresholds[i-1], ProbaThresholds[i])
+            else:
+                PosKeep=np.where(Pall >= ProbaThresholds[i-1])[0]
+                label="P >= {}".format(ProbaThresholds[i-1])
+            classes[key]={"label": label,
+                    "color":ColorsThresholds[i],
+                    "marker": MarkerThresholds[i],
+                    "fillstyle": FillThresholds[i],
+                    "positions": PosKeep,
+                    "x": Xall[PosKeep],
+                    "y": Yall[PosKeep],
+                    "err_x":Xerrall[:,PosKeep],
+                    "err_y":Yerrall[:,PosKeep],
+                    "Probability":Pall[PosKeep],
+                    "starID":[starIDAll[j] for j in PosKeep]
+                }
+            key=increment_letter(key)
+    else:
+        print(colored("\t Warning: The number of Probability thresholds is only one. A single class will be created "), "yellow")
+        PosKeep=np.where(Pall <= ProbaThresholds[0])[0]
+        label="P <= {}".format(ProbaThresholds[0])
         classes[key]={"label": label,
-                "color":ColorsThresholds[i],
-                "marker": MarkerThresholds[i],
-                "fillstyle": FillThresholds[i],
+                "color":ColorsThresholds[0],
+                "marker": MarkerThresholds[0],
+                "fillstyle": FillThresholds[0],
                 "positions": PosKeep,
                 "x": Xall[PosKeep],
                 "y": Yall[PosKeep],
@@ -681,8 +865,7 @@ def DoClassesRotvsRot(ModelCode, ProductsOdds, ProductsRot, Ylabel, Xlabel,
                 "err_y":Yerrall[:,PosKeep],
                 "Probability":Pall[PosKeep],
                 "starID":[starIDAll[j] for j in PosKeep]
-            }
-        key=increment_letter(key)
+            } 
     return classes
 
 
@@ -777,25 +960,46 @@ def DoClassesExternalvsRot(ModelCode, ProductsOdds, ProductsRot,ExternalData, Ro
         j=j+1
     # And Finally we deal with the color coding and the properties of the classes len(ProbaThresholds)+1
     # Classes corresponding to the ProbaThresholds
-    for i in range(len(ProbaThresholds)+1): 
-        if i==0:
-            PosKeep=np.where(Pall <= ProbaThresholds[i])[0]
-            label="P <= {}".format(ProbaThresholds[i])
-        elif i>0 and i<len(ProbaThresholds):
-            PosKeep=np.where(np.bitwise_and(Pall > ProbaThresholds[i-1], Pall < ProbaThresholds[i]))[0]
-            label="{} < P < {}".format(ProbaThresholds[i-1], ProbaThresholds[i])
-        else:
-            PosKeep=np.where(Pall >= ProbaThresholds[i-1])[0]
-            label="P >= {}".format(ProbaThresholds[i-1])
-        #print(" >>>> PosKeep : ", PosKeep)
-        # Define symetrical errors for the ExternalData parameters as the external data always contain symetrical errors
+    if len(ProbaThresholds) > 1:
+        for i in range(len(ProbaThresholds)+1): 
+            if i==0:
+                PosKeep=np.where(Pall <= ProbaThresholds[i])[0]
+                label="P <= {}".format(ProbaThresholds[i])
+            elif i>0 and i<len(ProbaThresholds):
+                PosKeep=np.where(np.bitwise_and(Pall > ProbaThresholds[i-1], Pall < ProbaThresholds[i]))[0]
+                label="{} < P < {}".format(ProbaThresholds[i-1], ProbaThresholds[i])
+            else:
+                PosKeep=np.where(Pall >= ProbaThresholds[i-1])[0]
+                label="P >= {}".format(ProbaThresholds[i-1])
+            #print(" >>>> PosKeep : ", PosKeep)
+            # Define symetrical errors for the ExternalData parameters as the external data always contain symetrical errors
+            err_x=np.zeros((2,len(PosKeep))) 
+            err_x[0,:]=Xerrall[PosKeep]
+            err_x[1,:]=Xerrall[PosKeep]
+            classes[key]={"label": label,
+                    "color":ColorsThresholds[i],
+                    "marker": MarkerThresholds[i],
+                    "fillstyle": FillThresholds[i],
+                    "positions": PosKeep,
+                    "x": Xall[PosKeep],
+                    "y": Yall[PosKeep],
+                    "err_x":err_x,
+                    "err_y":Yerrall[:,PosKeep],
+                    "Probability":Pall[PosKeep],
+                    "starID":[StarIDOK[j] for j in PosKeep]
+                }
+            key=increment_letter(key)
+    else:
+        print("\t Warning: The number of Probability thresholds is only one. A single class will be created")
+        PosKeep=np.where(Pall <= ProbaThresholds[0])[0]
+        label="P <= {}".format(ProbaThresholds[0])
         err_x=np.zeros((2,len(PosKeep))) 
         err_x[0,:]=Xerrall[PosKeep]
         err_x[1,:]=Xerrall[PosKeep]
         classes[key]={"label": label,
-                "color":ColorsThresholds[i],
-                "marker": MarkerThresholds[i],
-                "fillstyle": FillThresholds[i],
+                "color":ColorsThresholds[0],
+                "marker": MarkerThresholds[0],
+                "fillstyle": FillThresholds[0],
                 "positions": PosKeep,
                 "x": Xall[PosKeep],
                 "y": Yall[PosKeep],
@@ -803,11 +1007,50 @@ def DoClassesExternalvsRot(ModelCode, ProductsOdds, ProductsRot,ExternalData, Ro
                 "err_y":Yerrall[:,PosKeep],
                 "Probability":Pall[PosKeep],
                 "starID":[StarIDOK[j] for j in PosKeep]
-            }
-        key=increment_letter(key)
+            }        
     return classes
 
+def CheckInstanceDataClass(classes, key, subkey):
+    """
+    CheckInstanceDataClass function that check the validity of the given subkey for a specific key in the classes dictionary.
+    If valid, it returns a list of elements based on the subkey.
+    This function is specifically used in the WriteDataClass() function to handle the color, marker, and fillstyle subkeys.
+    Parameters:
+    - classes: A dictionary containing the data classes.
+    - key: The key in the classes dictionary.
+    - subkey: The subkey to be checked.
+
+    Returns:
+    - elements: The validated elements based on the subkey.
+
+    Raises:
+    - ValueError: If the subkey is not 'color', 'marker', or 'fillstyle', or if the value associated with the subkey is not a string, list, or numpy array.
+    """
+    if subkey != "color" and subkey != "marker" and subkey != "fillstyle":
+        err_msg = "The {} must be either 'color', 'marker' or 'fillstyle'".format(subkey)
+        raise ValueError(colored(err_msg), "red")
+    
+    if isinstance(classes[key][subkey], str):
+        elements = np.repeat(classes[key][subkey], len(classes[key]["starID"]))
+    elif isinstance(classes[key][subkey], list) or isinstance(classes[key][subkey], np.ndarray):
+        elements = classes[key][subkey]
+    else:
+        err_msg = "The {} must be a string, a list or an array".format(subkey)
+        raise ValueError(colored(err_msg), "red")
+    return elements
+
 def WriteDataClass(fileout, classes, header="#Tabular representation of the data class used in the plots\n"):
+    """
+    Write the data class to a file in a tabular format.
+
+    Args:
+        fileout (str): The output file path.
+        classes (dict): A dictionary containing the data class.
+        header (str, optional): The header text to be written at the beginning of the file. Defaults to "#Tabular representation of the data class used in the plots\n".
+
+    Returns:
+        None
+    """
     header=header + "#x= " + classes["xlabel"] +"\n"
     header=header + "#y= " + classes["ylabel"] +"\n"
     excluded_keys=['xlabel', 'ylabel', 'hline']
@@ -817,6 +1060,9 @@ def WriteDataClass(fileout, classes, header="#Tabular representation of the data
             allowed_keys.append(key)
     variables=""
     for key in allowed_keys:
+        colors=CheckInstanceDataClass(classes, key, "color")
+        markers=CheckInstanceDataClass(classes, key, "marker")
+        fillstyles=CheckInstanceDataClass(classes, key, "fillstyle")
         labels="!{0:<5} {1:<15} {2:<15} {3:<15} {4:<15} {5:<15} {6:<15} {7:<15} {8:<10} {9:<10} {10:<5} {11:<8} {12:<15}\n".format("key", "StarID", "x", "y", "err_x_inf","err_x_sup", "err_y_inf", "err_y_sup", "Pr", "color", "marker", "fillstyle", "label")
         for i in range(len(classes[key]["starID"])):
             variables=variables + " {0:<5} {1:<15} {2:<15.5f} {3:<15.5f} {4:<15.5f} {5:<15.5f} {6:<15.5f} {7:<15.5f} {8:<10.2f} {9:<10} {10:<8} {11:<10} {12:<}\n".format(key, classes[key]["starID"][i], 
@@ -824,9 +1070,9 @@ def WriteDataClass(fileout, classes, header="#Tabular representation of the data
                                                 classes[key]["err_x"][0][i],classes[key]["err_x"][1][i],
                                                 classes[key]["err_y"][0][i],classes[key]["err_y"][1][i],
                                                 classes[key]["Probability"][i],
-                                                classes[key]["color"],
-                                                classes[key]["marker"],
-                                                classes[key]["fillstyle"],
+                                                colors[i],
+                                                markers[i],
+                                                fillstyles[i],
                                                 classes[key]["label"])
         f=open(fileout, "w")
         f.write(header)
@@ -935,7 +1181,7 @@ def Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root
                             MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"])
         WriteDataClass(os.path.join(dir_out, imgfile + ".{}.res".format(var_name1)), classes_var_name1, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
         classes_var_name2=DoClassesExternalvsRot(ModelCode, ProductsOdds, ProductsRot,
-                            NonSeismic, var_name2, "Teff_SDSS", "Tot_eTeff", varname2label("Teff"), varname2label(var_name2), do_hline=[True,0],
+                            NonSeismic, var_name2, xvar, err_xvar, varname2label(xvar), varname2label(var_name2), do_hline=[True,0],
                             ProbaThresholds=ProbaThresholds, 
                             ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                             MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"])
@@ -962,6 +1208,63 @@ def Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root
     ax[0].legend(fontsize=10, loc='upper right')	
     fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
 
+def Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out, imgfile, NonSeismic, products_root_dir, 
+                       var_name1, var_name2, xvar, err_xvar, xvar_is_external,
+                       core_odds_files="Proba_summary", core_rot_files="rotation_stats",
+                       odds_keys=["m1s", "median", "p1s"],confidence_rot=[2.25, 16, 50, 84, 97.75], ProbaThresholds=[50, 70, 90],
+                       ProductsOdds=None, ProductsRot=None):
+    """
+    Plot the ajAlm data showing only Max proba among a set 1201 or 1211, RELATIVE to another set (eg. 1001).
+    This is performed after loading the correct data sets.
+    Do not get confused with plot_ajAlm() which is a function that only plots the data.
+
+    Args:
+        set_dir (str): The directory of the data set.
+        ModelFamilyActivity (str): The model family code for the analysis for which the max(Probability) is shown (either 1201 or 1211).
+        ModelCodeRef (str): The model code for the analysis used as reference (eg. 1001).
+        dir_out (str): The output directory.
+        imgfile (str): The name of the output image file.
+        NonSeismic (bool): Flag indicating if non-seismic data is included.
+        products_root_dir (str): The root directory of the products data.
+        var_name1 (str): The name of the first variable.
+        var_name2 (str): The name of the second variable.
+        xvar (str): The name of the x-variable.
+        err_xvar (str): The name of the error in the x-variable.
+        xvar_is_external (bool): Flag indicating if the x-variable is external.
+        core_odds_files (str, optional): The core name for odds ratio files. Defaults to "Proba_summary".
+        core_rot_files (str, optional): The core name for rotation files. Defaults to "rotation_stats".
+        odds_keys (list, optional): The keys for odds ratio elements present in product dictionaries. Defaults to ["m1s", "median", "p1s"].
+        confidence_rot (list, optional): The confidence levels for rotation. Defaults to [2.25, 16, 50, 84, 97.75].
+        ProbaThresholds (list, optional): The probability thresholds for the odds ratio. Defaults to [50, 70, 90].
+        ProductsOdds (dict, optional): The odds ratio products data. Defaults to None. If not provided, it will be loaded.
+        ProductsRot (dict, optional): The rotation products data. Defaults to None. If not provided, it will be loaded.
+    """
+    if ProductsOdds == None or ProductsRot == None:
+        ProductsOdds, ProductsRot=get_productsdata(os.path.join(products_root_dir , set_dir), core_odds_files=core_odds_files, core_rot_files=core_rot_files,
+                    odds_keys=odds_keys, confidence_rot=confidence_rot)
+
+    classes_var_name1=ProbabilityPeakGroup(ModelFamilyActivity, ProductsOdds, ProductsRot, NonSeismic,
+                        var_name1, xvar, varname2label(xvar), varname2label(var_name1), xvar_is_external, ExternalXerrlabel=err_xvar,
+                        ProbaThresholds=ProbaThresholds,
+                        ColorsThresholds=["LightGray", "Gray", "Blue", "Green"], DoRenormalise=[True, ModelCodeRef])
+    
+    classes_var_name2=ProbabilityPeakGroup(ModelFamilyActivity, ProductsOdds, ProductsRot, NonSeismic,
+                        var_name2, xvar, varname2label(xvar), varname2label(var_name1), xvar_is_external, ExternalXerrlabel=err_xvar,
+                        ProbaThresholds=ProbaThresholds,
+                        ColorsThresholds=["LightGray", "Gray", "Blue", "Green"], DoRenormalise=[True, ModelCodeRef])
+    # Saving the data in files
+    WriteDataClass(os.path.join(dir_out, imgfile + ".PeakGroup.{}.res".format(var_name1)), classes_var_name1, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
+    WriteDataClass(os.path.join(dir_out, imgfile + ".PeakGroup.{}.res".format(var_name2)), classes_var_name2, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
+    #print(colored("Data saved in files.", "green"))
+    # Actual plot
+    fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
+    plot_ajAlm(classes_var_name1, ax=ax[0])
+    plot_ajAlm(classes_var_name2, ax=ax[1])
+    ax[0].set_title("Significance {}".format(set_dir))
+    # Handling legends
+    ax[0].legend(fontsize=10, loc='upper right')	
+    fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
+
 def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary", core_rot_files="rotation_stats",
                 odds_keys=["m1s", "median", "p1s"],
                 confidence_rot=[2.25, 16, 50, 84, 97.75],
@@ -980,7 +1283,7 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
  
     ProbaThresholds=[50, 70, 90]
 
-    print('Reading the file with M, R, Teff, etc... ', external_file)
+    print('Reading the file with M, R, Teff, etc... ', external_file)   
     NonSeismic=get_externaldata(external_file) # Matricial format converted into a dictionary for some information
 
     '''
@@ -1053,6 +1356,30 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
                  do_recompose=[True, [["1001"],
                                       ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", 
                                        "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize])
+
+    ModelFamilyActivity="1201"
+    ModelCodeRef="1001"
+    imgfile='HIGHESTActivitysignificance_vs_1001_Teff.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1201vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True)
+
+    ModelFamilyActivity="1211"
+    ModelCodeRef="1001"
+    imgfile='HIGHESTActivitysignificance_vs_1001_Teff.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True)
+
+    ModelFamilyActivity="1211"
+    ModelCodeRef="1011"
+    imgfile='HIGHESTActivitysignificance_vs_1011_Teff.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1011/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True)
+
+    ModelFamilyActivity="12X1"
+    ModelCodeRef="1001"
+    imgfile='HIGHESTActivitysignificance_vs_1001_Teff.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/12X1vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True)
 
     # ================= TEST ZONE (END) =================
     

@@ -142,7 +142,7 @@ def do_products_main():
     '''
     cpp_path="/var/services/homes/obenomar/TAMCMC_bin_1.86.78_x86/"
     data_dir="/var/services/homes/dataonly/Kepler_FullScale_Analysis/Sun-like/Outputs/Tcoef_1.7_1.86.77/"
-    dir_out="/var/services/homes/dataonly/Kepler_FullScale_Analysis/Sun-like/Products/Tcoef_1.7_1.86.77/statistical_summary/All/"
+    dir_out="/var/services/homes/dataonly/Kepler_FullScale_Analysis/Sun-like/Products/Tcoef_1.7_1.86.77/statistical_summary/All_Evidence_1chain_new/"
     tmpdir="../tmp/"
     #
     #recompute_evidence=[True, True, cpp_path]
@@ -157,9 +157,11 @@ def do_products_main():
                         recompute_evidence=recompute_evidence, phase="A", period=40, tmpdir=tmpdir)
     
 def version(verbose=True):
-    v="1.01"
+    v="1.10"
     if verbose == True:
         print("StatSummaryCompute version {}".format(v), flush=True)
+        print("   - 1.10 (8 May 2024): Added writing theta_min and theta_max in the summary tables")
+        print("   - 1.01: First version of the code")
     return v
 
 

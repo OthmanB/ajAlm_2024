@@ -15,7 +15,8 @@ def show_ajAlm_pdfs(dir_mcmc, keep_aj=None, file_out='test.jpg', binning=40, ext
 				process_name=None,
 				phase="A", chain=0,
 				first_index=0, last_index=-1, period=1,
-				cpp_path="cpp_prg/", outtmpdir="tmp/", confidence=[2.25,16,50,84,97.75]):
+				cpp_path="cpp_prg/", outtmpdir="tmp/", confidence=[2.25,16,50,84,97.75],
+				compute_theta_minmax=[False, None]):
 	'''
 		Basic function to show the pdfs for the activity parameters: epsilon_nl, theta0, delta
 		dir_mcmc: directory that specify where to look at the data. 
@@ -58,8 +59,28 @@ def show_ajAlm_pdfs(dir_mcmc, keep_aj=None, file_out='test.jpg', binning=40, ext
 			else:
 				aj_stats_keep[cpt,:]=aj_stats[i,:]
 				aj_samples_keep[cpt,:]=aj_samples[i,:]
+				if labels[i] == r"$\theta_0$":
+					theta0_samples=aj_samples[i,:]
+				if labels[i] == r"$\delta$":
+					delta_samples=aj_samples[i,:]
 			labels_keep.append(labels[i])
 			cpt=cpt+1
+	# Compute theta_min and theta_max from theta0 and delta
+	# Warning here: This is the FWHM valid in both Gate and Triangle Case. But the equivalence is FWHM(Gate) = HWHM(Gate) = 2*FWHM(Triangle)
+	# 			    Due to the Thales theorem.
+	# You should therefore compare the HWHM of the Gate with the HWHM of the Triangle (a factor 2, ie theta0 +/- delta/4 for the triangle)				
+	if compute_theta_minmax[0] == True:
+		if compute_theta_minmax[1] == None and compute_theta_minmax[1] != "Gate" and compute_theta_minmax[1] != "Triangle":
+			err_msg=colored("ERROR : The subtype1 {} is not recognized. You must specify either 'Gate' or 'Triangle'".format(modeltypes[i][1]), "red")
+			raise ValueError(err_msg)
+		if compute_theta_minmax[1] == "Gate":
+			theta_min_samples=theta0_samples - delta_samples/2
+			theta_max_samples=theta0_samples + delta_samples/2
+		if compute_theta_minmax[1] == "Triangle":
+			theta_min_samples=theta0_samples - delta_samples/4
+			theta_max_samples=theta0_samples + delta_samples/4
+		theta_min_stats=make_stats(theta_min_samples[theta_min_samples > 0], confidence=confidence)
+		theta_max_stats=make_stats(theta_max_samples[theta_max_samples > 0], confidence=confidence)
 
 	if show_inc == True:
 		inc_stats = inc_stats
@@ -68,19 +89,6 @@ def show_ajAlm_pdfs(dir_mcmc, keep_aj=None, file_out='test.jpg', binning=40, ext
 		aj_samples_keep = np.vstack((aj_samples_keep, inc_samples[:,0]))
 		labels_keep.append("Inclination")
 		Nparams_keep=Nparams_keep+1
-
-	#### AD HOC MOD. REMOVE IF UNEXPECTED
-	'''
-	i = 0
-	pos_keep=np.where(aj_samples_keep[i,:] > 400)[0]
-	aj_samples_keep_2=np.zeros((Nparams_keep, len(pos_keep)))
-	aj_stats_keep=np.zeros((Nparams_keep, len(confidence)))
-	for i in range(Nparams_keep):
-		aj_samples_keep_2[i,:] = aj_samples_keep[i,pos_keep]
-		aj_stats_keep[i,:]=np.percentile(aj_samples_keep_2[i,:], confidence)
-	aj_samples_keep=aj_samples_keep_2
-	'''
-	####
 	# 		
 	extra_data=[] # Contain all of the pdfs info that are going to be plotted. Minimalistically, extra_data[0]=extra_a2CF
 	# -- Perform the plotting --
@@ -89,8 +97,11 @@ def show_ajAlm_pdfs(dir_mcmc, keep_aj=None, file_out='test.jpg', binning=40, ext
 	for i in range(Nparams):
 		if labels[i] != r"$\theta_0$" and labels[i] != r"$\delta$":
 			aj_stats[i,:]=aj_stats[i,:]*unit_nHz
-	return labels_txtonly, units_txtonly, aj_stats, inc_stats # We return all what was read... because it is supposed to be written later
-	
+	if compute_theta_minmax[0] == True:
+		return labels_txtonly, units_txtonly, aj_stats, inc_stats, theta_min_stats, theta_max_stats # We return all what was read... because it is supposed to be written later
+	else:
+		return labels_txtonly, units_txtonly, aj_stats, inc_stats # We return all what was read... because it is supposed to be written later
+
 def show_aj_pdfs(dir_mcmc, keep_aj=None, file_out='test.jpg', binning=40, extra_gaussian=[], 
 				 idlfiles=False, show_a2CF=False, show_inc=False,
 				 ignore_slope=True,
@@ -369,16 +380,21 @@ def do_all_analyse_ajAlm(dir_tamcmc_root, dir_out_root, data_source, prefix="kpl
 					if k == 0:
 						modelcode=str(modeltypes[i][k])
 					else:
-						#modelcode=modelcode+ "_" + str(modeltypes[i][k])
 						modelcode=modelcode + str(modeltypes[i][k])
 				# Process the MCMC content
-				labels, units, ajAlm_stats, inc_stats=show_ajAlm_pdfs(dir_model, keep_aj=keep_aj, file_out=outfile, binning=40, 
+				labels, units, ajAlm_stats, inc_stats, theta_min, theta_max=show_ajAlm_pdfs(dir_model, keep_aj=keep_aj, file_out=outfile, binning=40, 
 							ignore_slope=True, idlfiles=False, show_inc=show_inc,
 							process_name=process_names[j],
 							phase=phase, chain=0,
 							first_index=0, last_index=-1, period=period,
-							cpp_path=cpp_path, outtmpdir=tmpdir, confidence=confidence)	
-				# Write a summary in the directory of the pdf
+							cpp_path=cpp_path, outtmpdir=tmpdir, confidence=confidence,
+							compute_theta_minmax=[True,modeltypes[i][1]] )	
+				labels.append("theta_min") #r"$\theta_{\rm min}$"
+				labels.append("theta_max") #r"$\theta_{\rm max}$"
+				units.append("deg")
+				units.append("deg")
+				ajAlm_stats=np.vstack((ajAlm_stats, theta_min, theta_max))
+				# Write a summary in the directory of the pdf (.rot file)
 				write_ajAlm(outfile_txt, labels, units, ajAlm_stats, inc_stats, [], confidence, modelcode, stats_type="ajAlm")
 				# Prepare everything to be written in a single file that is model-agnostic in Nconfidence files. Files will be taged using "confidence[k]"
 				for c in range(len(confidence)):
@@ -386,8 +402,8 @@ def do_all_analyse_ajAlm(dir_tamcmc_root, dir_out_root, data_source, prefix="kpl
 					data_models[c,j]=d
 		data_all.append(data_models) # because we do not know firsthand the final number of processes within a model, we have to do this list thing
 	# Open new files (erasing old ones if any) and setting their headers
-	labels_all=["ID", "modelcode", "a1", "a2", "a2CF", "a3", "a4", "a5", "a6", "epsilon", "theta0", "delta", "Inclination"]
-	units_all =["N/A", "N/A", "nHz","nHz","nHz","nHz", "nHz","nHz","nHz", "10^-3","deg" , "deg", "deg"]
+	labels_all=["ID", "modelcode", "a1", "a2", "a2CF", "a3", "a4", "a5", "a6", "epsilon", "theta0", "delta", "theta_min", "theta_max", "Inclination"]
+	units_all =["N/A", "N/A", "nHz","nHz","nHz","nHz", "nHz","nHz","nHz", "10^-3","deg" , "deg", "deg", "deg", "deg"]
 	for c in range(Nconfidence):
 		filename=dir_out_root + "rotation_stats_{:.2f}.summary".format(confidence[c])
 		if append == False:
@@ -418,6 +434,8 @@ def do_all_analyse_ajAlm(dir_tamcmc_root, dir_out_root, data_source, prefix="kpl
 	print(colored("   Individual summary files and plots are at:","green"), flush=True)
 	for odir in odir_list:
 		print(colored("   {}","green").format(odir), flush=True)
+	print("TESTING : All done! (EXITING)", flush=True)
+	exit()
 	
 
 def write_ajAlm(outfile, labels, units, aj_stats, inc_stats, a2CF_stats, confidence, modelcode, stats_type="aj"):
@@ -451,7 +469,7 @@ def write_ajAlm(outfile, labels, units, aj_stats, inc_stats, a2CF_stats, confide
 		units_all=units
 		Ng=Naj+1
 		grouped=np.zeros((Ng,Nconfidence))
-		grouped[0:Naj,:]=aj_stats[:,:] # a1, a3, a5, epsilon ,theta0, delta
+		grouped[0:Naj,:]=aj_stats[:,:] # a1, a3, a5, epsilon ,theta0, delta, theta_min, theta_max
 		grouped[Naj,:]=inc_stats
 	else:
 		raise ValueError("stats_type invalid. You must specify either 'aj' or 'ajAlm'")
@@ -485,8 +503,8 @@ def format_all_ajAlm(labels, units, aj_stats, inc_stats, a2CF_stats, starID, mod
 	'''
 	Naj=len(aj_stats[:,0])
 	Nconfidence=len(aj_stats[0,:])
-	Ng=11 # a1, a2, a2CF, a3, a4, a5, a6, epsilon, theta0, delta, Inclination
-	labels_all=["a1", "a2", "a2CF", "a3", "a4", "a5", "a6", "epsilon", "theta0", "delta", "Inclination"]
+	Ng=13 # a1, a2, a2CF, a3, a4, a5, a6, epsilon, theta0, delta, theta_min, theta_max, Inclination
+	labels_all=["a1", "a2", "a2CF", "a3", "a4", "a5", "a6", "epsilon", "theta0", "delta", "theta_min", "theta_max", "Inclination"]
 	grouped=np.zeros((Ng,Nconfidence))
 	if stats_type == "aj":
 		grouped[0:2,:]=aj_stats[0:2,:] # a1, a2
@@ -530,9 +548,11 @@ def test1():
 
 
 def show_version(verbose=True):
-	version="1.31"
+	version="1.35"
 	if verbose == True:
 		print("show_pdf_aj_obs version {}".format(version), flush=True)
+		print("Updated on 8 May 2024: ", flush=True)
+		print("   - Adding computation of theta_min and theta_max within the show_ajAlm_pdfs() function", flush=True)
 		print("Updated on 1 May 2024: ")
 		print("   - Writting the modelCode without underscore in the statistical summary files. This to be consistent with Odds ratio summary file. e.g. 1201_Gate_decompose_-1 -> 1201Gatedecompose-1")	
 		print("Updated on 09 Apr 2024: ", flush=True)
