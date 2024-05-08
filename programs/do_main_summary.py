@@ -154,7 +154,7 @@ def do_products_main():
                         done_modelsubtype1=["Gate", "Triangle"],
                         done_modelsubtype2=["decompose_-1", "decompose_1", "decompose_2"],
                         cpp_path=cpp_path,
-                        recompute_evidence=recompute_evidence, phase="A", period=40, tmpdir=tmpdir)
+                        recompute_evidence=recompute_evidence, phase="A", period=10, tmpdir=tmpdir)
     
 def version(verbose=True):
     v="1.10"
