@@ -434,8 +434,6 @@ def do_all_analyse_ajAlm(dir_tamcmc_root, dir_out_root, data_source, prefix="kpl
 	print(colored("   Individual summary files and plots are at:","green"), flush=True)
 	for odir in odir_list:
 		print(colored("   {}","green").format(odir), flush=True)
-	print("TESTING : All done! (EXITING)", flush=True)
-	exit()
 	
 
 def write_ajAlm(outfile, labels, units, aj_stats, inc_stats, a2CF_stats, confidence, modelcode, stats_type="aj"):
