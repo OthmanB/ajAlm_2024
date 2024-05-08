@@ -361,7 +361,7 @@ def do_all_analyse_ajAlm(dir_tamcmc_root, dir_out_root, data_source, prefix="kpl
 			outfile_txt=outfile + ".rot"
 			# Run the correct plotting function in function of the modeltype
 			print(colored("        >>>>> Processing {}...".format(outfile), "green"), flush=True)
-			if str(modeltypes[i][0]) == "1000" or str(modeltypes[i][0]) == "1001" or str(modeltypes[i][0]) == "1101" or str(modeltypes[i][0]) == "1111":
+			if str(modeltypes[i][0]) == "1000" or str(modeltypes[i][0]) == "1001" or str(modeltypes[i][0]) == "1011" or str(modeltypes[i][0]) == "1101" or str(modeltypes[i][0]) == "1111":
 				modelcode=str(modeltypes[i][0])
 				labels, units, aj_stats, inc_stats,a2CF_stats=show_aj_pdfs(dir_model, keep_aj=keep_aj, file_out=outfile, binning=40, 
 							ignore_slope=True, show_a2CF=show_a2CF, idlfiles=False, show_inc=show_inc,
