@@ -259,11 +259,11 @@ def show_probabilities(modeltypes, oddsratios, oddsratios_err, fileout, starID):
         probabilities_min[i]=np.min(plist)
         probabilities_max[i]=np.max(plist)
         for j in range(len(modeltypes)):
-            text = ax.text(j, i, f'{oddsratios[i, j]:.1e}' if oddsratios[i, j] > 100 else f'{oddsratios[i, j]:.1f}', ha='center', va='center', fontsize=4)
+            text = ax.text(j, i, f'{oddsratios[i, j]:.1e}' if oddsratios[i, j] > 100 else f'{oddsratios[i, j]:.2f}', ha='center', va='center', fontsize=4)
 
     # Add the last column for probabilities
     for i in range(len(modeltypes)):
-        text = ax.text(len(modeltypes), i, f'{probabilities[i]:.1f}', ha='center', va='center', fontsize=4, color='black')
+        text = ax.text(len(modeltypes), i, f'{probabilities[i]:.2f}', ha='center', va='center', fontsize=4, color='black')
 
     tick_names = []
     for m in modeltypes:
@@ -330,15 +330,15 @@ def compile_results_comparison(starID, modeltypes, oddsratios, oddsratios_err, d
                     col = "green"
                 # Append the formatted modeltype and probability to the strings
                 str_model += colored("{}".format(str(modeltypes_out[j])), col)
-                string_med += colored("{:<26.1f}".format(probabilities[j]), col)
-                string_m1s += colored("{:<26.1f}".format(probabilities_min[j]), col)
-                string_p1s += colored("{:<26.1f}".format(probabilities_max[j]), col)
+                string_med += colored("{:<26.2f}".format(probabilities[j]), col)
+                string_m1s += colored("{:<26.2f}".format(probabilities_min[j]), col)
+                string_p1s += colored("{:<26.2f}".format(probabilities_max[j]), col)
             else:
                 # Append the formatted modeltype and probability to the strings
                 str_model += "{}".format(str(modeltypes_out[j]))
-                string_med += "{:<26.1f}".format(probabilities[j])
-                string_m1s += "{:<26.1f}".format(probabilities_min[j])
-                string_p1s += "{:<26.1f}".format(probabilities_max[j])
+                string_med += "{:<26.2f}".format(probabilities[j])
+                string_m1s += "{:<26.2f}".format(probabilities_min[j])
+                string_p1s += "{:<26.2f}".format(probabilities_max[j])
         # Print the modeltypes and probabilities to the console
         print(str_model, ") :", string_med, flush=True)
         print('--', flush=True)
