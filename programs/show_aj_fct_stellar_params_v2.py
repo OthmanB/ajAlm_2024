@@ -1193,7 +1193,7 @@ def Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root
                         MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
                         do_hline=[True,0])
         WriteDataClass(os.path.join(dir_out, imgfile + ".{}.res".format(var_name1)), classes_var_name1, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
-        classes_var_name2=DoClassesRotvsRot(ModelCode, ProductsOdds, ProductsRot, 'a4', 'a1',
+        classes_var_name2=DoClassesRotvsRot(ModelCode, ProductsOdds, ProductsRot, var_name2, xvar,
                         varname2label(xvar), varname2label(var_name2), ProbaThresholds=ProbaThresholds, 
                         ColorsThresholds=["Gray", "dimgray", "Blue", "Green"], 
                         MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
@@ -1380,10 +1380,8 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
     imgfile='HIGHESTActivitysignificance_vs_1001_Teff.jpg'
     Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/12X1vs1001/", imgfile, NonSeismic, products_root_dir,  
                                   "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True)
-
-    # ================= TEST ZONE (END) =================
     
-    '''
+
     # ================= a2  significance using 1001 vs 1101 =================
     set_dir = "1001_vs_1101"
     ModelCode="1101"
@@ -1393,15 +1391,59 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
     imgfile='a2significance_vs_a2a4_a1.jpg'
     Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "a2", "a4", "a1", "", False)
 
-    # ==============  Activity significance that is Model Constrained : 1001 vs Sum_{j,k} 12j1k ===============
+    # ==============  Activity significance that is Model Constrained : 1001 vs Sum_{j,k} 1201k ===============
     set_dir = "All"
-    ModelCode="1211Triangledecompose_1" # This is the Model that we will show for the rotation values
-    imgfile='Activitysignificance_vs_1211_Teff.jpg'
     renormalize=True # If True, the probability is renormalized to 1 between the models listed in do_recompose
-    Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
-                 do_recompose=[True, [["1001"],
-                                      ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize])
-     
+    shortname=["G-1","G1","G2"]
+    Models=["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2"]
+    for i in range(3):
+        imgfile='Activity_1001_vs_Sum1201G_Teff_Show1201{}.jpg'.format(shortname[i])
+        Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
+                    do_recompose=[True, [["1001"],
+                                        Models], renormalize])
+        imgfile='Activity_1001_vs_Sum1201G_a1_Show1201{}.jpg'.format(shortname[i])
+        Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "a1", "", False,
+                    do_recompose=[True, [["1001"],
+                                        Models], renormalize])
+    shortname=["T-1","T1","T2"]
+    Models=["1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]
+    for i in range(3):
+        imgfile='Activity_1001_vs_Sum1201T_Teff_Show1201{}.jpg'.format(shortname[i])
+        Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
+                    do_recompose=[True, [["1001"],
+                                        Models], renormalize])
+        imgfile='Activity_1001_vs_Sum1201T_a1_Show1201{}.jpg'.format(shortname[i])
+        Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "a1", "", False,
+                    do_recompose=[True, [["1001"],
+                                        Models], renormalize])
+        
+    # ==============  Activity significance that is Model Constrained with a3 : 1011 vs Sum_{j,k} 1211k ===============
+    set_dir = "All"
+    renormalize=True # If True, the probability is renormalized to 1 between the models listed in do_recompose
+    shortname=["G-1","G1","G2"]
+    Models=["1211Gatedecompose_-1", "1211Gatedecompose_1", "1211Gatedecompose_2"]
+    for i in range(3):
+        imgfile='Activity_1011_vs_Sum1211G_Teff_Show1211{}.jpg'.format(shortname[i])
+        Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
+                    do_recompose=[True, [["1011"],
+                                        Models], renormalize])
+        imgfile='Activity_1011_vs_Sum1211G_a1_Show1211{}.jpg'.format(shortname[i])
+        Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "a1", "", False,
+                    do_recompose=[True, [["1011"],
+                                        Models], renormalize])
+        
+    shortname=["T-1","T1","T2"]
+    Models=["1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]
+    for i in range(3):
+        imgfile='Activity_1011_vs_Sum1211T_Teff_Show1211{}.jpg'.format(shortname[i])
+        Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
+                    do_recompose=[True, [["1011"],
+                                        Models], renormalize])
+        imgfile='Activity_1011_vs_Sum1211T_a1_Show1201{}.jpg'.format(shortname[i])
+        Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "a1", "", False,
+                    do_recompose=[True, [["1011"],
+                                        Models], renormalize])
+    '''
     # ==============   a3  significance using 1101 vs 1111 ===============
     set_dir = "1101_vs_1111"
     ModelCode="1111"
