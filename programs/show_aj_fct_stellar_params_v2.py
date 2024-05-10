@@ -13,8 +13,13 @@ from pythonlibs.read_generic_files import read_matrix_tab
 
 def extract_ID_from_processname(ProcessName):
     '''
-        Process names often contain the star ID in it in the form of a numerical sequence
-        This function extract that numerical sequence and attribute it to the star ID
+    Extracts the star ID from a process name.
+
+    Parameters:
+        ProcessName (str): The process name containing the star ID.
+
+    Returns:
+        str or None: The extracted star ID as a string, or None if no match is found.
     '''
     match = re.search(r'\d+', ProcessName)
     if match:
@@ -25,23 +30,84 @@ def extract_ID_from_processname(ProcessName):
     return star_id
 
 def format_ID(ID, Ndigits=9):
-	'''
-		Small function that ensure that the ID number is on Ndigits digits
-		If this is not the case, we fill with 0 before the existing ID
-		With Kepler data, Ndigits=9 is fine. For TESS, Ndigits=10 shoud be OK (need check)
-	'''
-	NID=len(ID)
-	delta=8-NID+1 # We want to format using 8 digits
-	New_ID=ID
-	for d in range(delta):
-		New_ID='0' + New_ID
-	return New_ID
+    '''
+    Small function that ensures that the ID number is on Ndigits digits.
+    If the ID number has fewer digits than Ndigits, it is padded with leading zeros.
+    
+    Parameters:
+        ID (str): The ID number to be formatted.
+        Ndigits (int): The desired number of digits for the ID number. Default is 9.
+    
+    Returns:
+        str: The formatted ID number.
+    '''
+    NID = len(ID)
+    delta = Ndigits - NID
+    New_ID = ID
+    for d in range(delta):
+        New_ID = '0' + New_ID
+    return New_ID
+
+# Function to compute moving average with uncertainties
+def moving_average_with_uncertainty(data, window_size):
+    """
+    Calculates the moving average and scatter of a given data array.
+
+    Parameters:
+    data (array-like): The input data array.
+    window_size (int): The size of the moving window.
+
+    Returns:
+    tuple: A tuple containing the moving average array and the scatter array.
+    """
+
+    moving_avg = np.convolve(data, np.ones(window_size)/window_size, mode='valid')
+    uncertainty = np.std([data[i:i+window_size] for i in range(len(data)-window_size+1)], axis=1)
+    return moving_avg, uncertainty
+
+# Function to compute weighted moving average with uncertainties
+def weighted_moving_average_with_uncertainty(x, y, x_err, y_err, window_size):
+    """
+    Calculates the weighted moving average of a dataset with uncertainties.
+
+    Args:
+        x (array-like): The x-values of the dataset.
+        y (array-like): The y-values of the dataset.
+        x_err (array-like): The uncertainties in the x-values.
+        y_err (array-like): The uncertainties in the y-values.
+        window_size (int): The size of the moving window.
+
+    Returns:
+        tuple: A tuple containing the moving average, the uncertainty on the moving average,
+               and the scatter of the data within the window.
+
+    """
+    moving_avg = np.zeros(len(x) - window_size + 1) # the moving average
+    avg_uncertainty = np.zeros(len(x) - window_size + 1) # the uncertainty on the moving average coming only from the error on y
+    scatter=np.zeros(len(x) - window_size + 1) # the scatter of the data within the window coming only dispersion of y
+    for i in range(len(moving_avg)):
+        weights = 1.0 / (y_err[i:i+window_size] ** 2)
+        moving_avg[i] = np.sum(weights * y[i:i+window_size]) / np.sum(weights)
+        avg_uncertainty[i] = np.sqrt(1.0 / np.sum(weights))
+        scatter[i]= np.std(y[i:i+window_size])
+    return moving_avg, avg_uncertainty, scatter
 
 def get_externaldata(external_file):
     '''
     This function regroups the information about Mass, Radius, Teff
     The file will be returned as a list of lists due to the fact that such a file is expectected to have 
     a mixture of string and float
+    
+    Parameters:
+        external_file (str): The path to the external data file.
+        
+    Returns:
+        dict: A dictionary containing the non-seismic stellar parameters.
+            - 'label': A list of labels for each parameter.
+            - 'header': The header of the data file.
+            - 'unit': A list of units for each parameter.
+            - 'starID': A list of star IDs.
+            - 'data': A list of lists containing the non-seismic stellar data.
     '''
     #print('Reading the external data file with Teff, M, R, Age...')
     data, header, label, unit=read_matrix_tab(external_file, separator=",", first_data_is_label=True, datatype="string")
@@ -541,13 +607,31 @@ def propag_err_theta_min_max(theta0, delta, err_theta0, err_delta):
     err_theta_min= [np.sqrt(err_theta0[0]**2 + err_delta[0]**2/4),  np.sqrt(err_theta0[1]**2 + err_delta[1]**2/4)]
     return theta_min, theta_max, err_theta_min, err_theta_max
 
-def data_Benomar2022():
+def data_Benomar2023(xname, yname, SunOnly=True):
+    '''
+    A function that returns the data from Benomar et al. 2023 for the Sun and 16 Cyg A and B in a format
+    that can be used for the function plot_ajAlm(). The data are the following:
+    - Teff: Effective temperature of the star
+    - a1: The first spherical harmonic coefficient of the rotation profile
+    - epsilon: The intensity of the active band
+    - theta0: The mean latitude of the active band
+    - delta: The extension of the active band
+    variables:
+        xname: The name of the x-variable. It can be either "Teff" or "a1"
+        yname: The name of the y-variable. It can be either "epsilon", "theta0", "delta", "theta_min", "theta_max"
+    '''
     # epsilon, err_epsi_m, err_epsi_p, theta0, theta0_m, theta0_p, delta, delta_m, delta_p, theta_min, err_theta_min_m, err_theta_min_p, theta_max, err_theta_max_m, err_theta_max_p
     # WARNING: ERROR PROPAGATION WAS USED FOR THETA_MIN AND THETA_MAX COMPUTATION
     #          IT IS BETTER LATER TO USE THE FULL PDF TO ACCOUNT FOR CORRELATIONS
+    if xname not in ["Teff", "a1"] or yname not in ["epsilon", "theta0", "delta", "theta_min", "theta_max"]:
+        err_msg="Error: xname={} or yname={} is not in the list of available parameters.\n".format(xname, yname)
+        err_msg=err_msg + "    Allowed xname : ['Teff', 'a1']\n"
+        err_msg=err_msg + "    Allowed yname : ['epsilon', 'theta0', 'delta', theta_min, theta_max]\n"
+        raise ValueError(colored(err_msg, "red"))
+
     # ACTIVE SUN:
     theta_min, theta_max, err_theta_min, err_theta_max= propag_err_theta_min_max(76, 7, [7,8], [5,16])
-    Active_Sun={'Teff':5777, 
+    Active_Sun={'Teff':[5777, 10, 10], 
                 'a1':[421, 10, 10],
                 'epsilon':[7.6*1e-4, 5.3*1e-4, 25.5*1e-4], 
                 'theta0': [76, 7, 8], 
@@ -558,7 +642,7 @@ def data_Benomar2022():
     # 16 Cyg A:
     theta_min, theta_max, err_theta_min, err_theta_max= propag_err_theta_min_max(71, 4, [14,13], [3,15])
     #
-    CygA={"Teff":5825, 
+    CygA={"Teff":[5825, 25, 25], 
             'a1':[614, 37, 37],
             'epsilon':[5.3*1e-4, 4.1*1e-4, 19.6*1e-4], 
             'theta0': [71, 14, 13], 
@@ -568,7 +652,7 @@ def data_Benomar2022():
             }
     # 16 Cyg B (Sol with largest probability and largest uncertainty):
     theta_min, theta_max, err_theta_min, err_theta_max= propag_err_theta_min_max(67, 3, [25,14], [2,13])
-    CygB_higha4={'Teff':5750, 
+    CygB_higha4={'Teff':[5750, 25, 25], 
                     'a1':[607, 78, 78],
                     'epsilon':[4.6*1e-4, 3.7*1e-4, 20.8*1e-4], 
                     'theta0': [67, 25, 14], 
@@ -578,7 +662,7 @@ def data_Benomar2022():
                     }
     # 16 Cyg B (Sol with lower probability and lowest uncertainty):
     theta_min, theta_max, err_theta_min, err_theta_max= propag_err_theta_min_max(67, 3, [25,14], [2,13])
-    CygB_lowa4={'Teff':0, 
+    CygB_lowa4={'Teff':[5750, 25, 25], 
                     'a1':[607, 78, 78],
                     'epsilon':[12.5*1e-4, 7.5*1e-4, 31.9*1e-4], 
                     'theta0': [58, 3, 3], 
@@ -586,7 +670,33 @@ def data_Benomar2022():
                     'theta_min':[theta_min, err_theta_min[0], err_theta_min[1]], 
                     'theta_max':[theta_max, err_theta_max[0], err_theta_max[1]] 
                     }
-    return Active_Sun, CygA, CygB_lowa4, CygB_higha4
+    if SunOnly == False:
+        out_dic={
+                "x": [Active_Sun[xname][0], CygA[xname][0], CygB_lowa4[xname][0], CygB_higha4[xname][0]],
+                "y": [Active_Sun[yname][0], CygA[yname][0], CygB_lowa4[yname][0], CygB_higha4[yname][0]],
+                "err_x": [
+                            [Active_Sun[xname][1], CygA[xname][1], CygB_lowa4[xname][1], CygB_higha4[xname][1]],
+                            [Active_Sun[xname][2], CygA[xname][2], CygB_lowa4[xname][2], CygB_higha4[xname][2]]
+                        ],
+                "err_y": [
+                            [Active_Sun[yname][1], CygA[yname][1], CygB_lowa4[yname][1], CygB_higha4[yname][1]],
+                            [Active_Sun[yname][2], CygA[yname][2], CygB_lowa4[yname][2], CygB_higha4[yname][2]]
+                        ],
+            }
+    else:
+        out_dic={
+                "x": [Active_Sun[xname][0]],
+                "y": [Active_Sun[yname][0]],
+                "err_x": [
+                            [Active_Sun[xname][1]],
+                            [Active_Sun[xname][2]]
+                        ],
+                "err_y": [
+                            [Active_Sun[yname][1]],
+                            [Active_Sun[yname][2]]
+                        ],
+            }        
+    return out_dic
 
 
 def scoreclass2color(score, limits=[-1, 2.5, 3.5]):
@@ -690,7 +800,7 @@ def main_a2CF_a2AR():
     #
     exit()
 
-def plot_ajAlm(classes, file_out=None, ax=None):
+def plot_ajAlm(classes, file_out=None, ax=None, do_moving_average=[True, 5, ["A", "B", "C", "D"]], extra_data=None):
     '''
         A function that focus only on ploting in a standardised way the aj or Alm as a function of M, R, Teff,etc...
         example: if x = M and y = a1, you get M(a1)
@@ -729,7 +839,15 @@ def plot_ajAlm(classes, file_out=None, ax=None):
                      "y": The filtered y axis
                      "yerr" : A 2D array (2,N) with asymetrical errors. lower index is for lower bound. upper index is for upper bound
                      "xerr" : A 2D array (2,N) with asymetrical uncertainties
-        ax: Ploting zone: If provided, the plot is not initialised and the function just defines how to plots elements 
+        ax: Ploting zone: If provided, the plot is not initialised and the function just defines how to plots elements
+        do_moving_average: A list with three values. The first one tells if we do a moving average. 
+                    The second one is the window size (number of bins to average).
+                    The third is a list of keys that are going to be averaged.
+        extra_data: Can be used to provide additional data to be plotted. It is a dictionary of lists with the following keys:
+                    "x": The x-axis
+                    "y": The y-axis
+                    "err_x": The x-axis error
+                    "err_y": The y-axis error
     '''
     excluded_keys=['xlabel', 'ylabel', 'hline']
     allowed_keys=[]
@@ -738,8 +856,17 @@ def plot_ajAlm(classes, file_out=None, ax=None):
             allowed_keys.append(key)
     if ax == None:
         fig_1d, ax = plt.subplots(1,1, figsize=(12, 6))
-
+    x=[]
+    y=[]
+    x_err=[] # averaged error on x
+    y_err=[]
     for key in allowed_keys:
+        if key in do_moving_average[2]:
+            for j in range(len(classes[key]["x"])):
+                x.append(classes[key]["x"][j])
+                y.append(classes[key]["y"][j])
+                x_err.append(np.sqrt(classes[key]["err_x"][0,j]**2 + classes[key]["err_x"][1,j]**2)/2)
+                y_err.append(np.sqrt(classes[key]["err_y"][0,j]**2 + classes[key]["err_y"][1,j]**2)/2)
         # convert marker, color and fillstyle into arrays
         if isinstance(classes[key]["marker"], str):
             markers = [classes[key]["marker"]]*len(classes[key]["x"])
@@ -769,6 +896,32 @@ def plot_ajAlm(classes, file_out=None, ax=None):
             ax.axhline(classes["hline"][1], linestyle='--', color='black')
         ax.set_ylabel(classes["ylabel"])
         ax.set_xlabel(classes["xlabel"])
+
+    if extra_data != None:
+        if "x" in extra_data.keys() and "y" in extra_data.keys() and "err_x" in extra_data.keys() and "err_y" in extra_data.keys():
+            ax.errorbar(extra_data["x"], extra_data["y"], xerr=extra_data["err_x"], yerr=extra_data["err_y"], linestyle='', color='gold', marker='*', fillstyle='full', label='Extra data')
+        else:
+            err_msg=colored("Warning: The extra data provided are not complete. It must contain x and y values.", "yellow")
+            print(err_msg)
+        
+    if do_moving_average[0]:
+        if x == [] or y == [] or x_err == [] or y_err == []:
+            err_msg=colored("Error: No data to perform the moving average. Check the classes provided.","red")
+            print(colored("List of allowed keys                  : ", "red"), allowed_keys)
+            print(colored("List of keys requested for the average: ", "red"), do_moving_average[2])
+            raise ValueError(err_msg)
+        order=np.argsort(x)
+        x=np.array(x)[order]
+        y=np.array(y)[order]
+        x_err=np.array(x_err)[order]
+        y_err=np.array(y_err)[order]
+        # Moving average for the whole sample irrespective of the key
+        #moving_avg, avg_uncertainty = moving_average_with_uncertainty(y, window_size)
+        window_size=do_moving_average[1]
+        moving_avg, avg_uncertainty, scatter = weighted_moving_average_with_uncertainty(x, y, x_err, y_err, window_size)
+        ax.plot(x[window_size-1:], moving_avg, color='red', label='Average,error,scatter')
+        ax.fill_between(x[window_size-1:], moving_avg-avg_uncertainty, moving_avg+avg_uncertainty, color='red', alpha=0.3)
+        ax.fill_between(x[window_size-1:], moving_avg-avg_uncertainty-scatter, moving_avg+avg_uncertainty+scatter, color='cyan', alpha=0.3)
     if ax == None:
         # Handling legends
         ax.legend(fontsize=10, loc='upper left')	
@@ -851,7 +1004,7 @@ def DoClassesRotvsRot(ModelCode, ProductsOdds, ProductsRot, Ylabel, Xlabel,
                 }
             key=increment_letter(key)
     else:
-        print(colored("\t Warning: The number of Probability thresholds is only one. A single class will be created "), "yellow")
+        print("\t" + colored("Warning: The number of Probability thresholds is only one. A single class will be created ", "yellow"), flush=True)
         PosKeep=np.where(Pall <= ProbaThresholds[0])[0]
         label="P <= {}".format(ProbaThresholds[0])
         classes[key]={"label": label,
@@ -917,15 +1070,17 @@ def DoClassesExternalvsRot(ModelCode, ProductsOdds, ProductsRot,ExternalData, Ro
     IndexStarIDOK=[]
     IndexExternalStarIDOK=[]
     it=1
+    print("Looking for...", flush=True)
     for star in starIDAll:
-        print("[{}/{}]  Looking for {}...".format(it, len(starIDAll), star))
+        #print("[{}/{}]  Looking for {}...".format(it, len(starIDAll), star))
+        print(colored("[{}/{}]".format(it, len(starIDAll)), "blue"), "{}...".format(star), flush=True, end='')
         failed = False
         try:
             i0=ExternalData["starID"].index(star)
         except ValueError:
             failed=True
             StarsSkipped.append(star)
-            print(colored("    >>> Warning: The star {} is in ProductsRot but not in ExternalData".format(star), "yellow"))
+            print(colored("\n    >>> Warning: The star {} is in ProductsRot but not in ExternalData".format(star), "yellow"), flush=True)
         if failed == False:
             value=ExternalData["data"][i0][Xl0]
             if value not in invalid_list:
@@ -934,8 +1089,9 @@ def DoClassesExternalvsRot(ModelCode, ProductsOdds, ProductsRot,ExternalData, Ro
                 StarIDOK.append(star)
             else:
                 StarsSkipped.append(star)
-                print(colored("     >>> Warning: The ExternalData value for the parameter {} of the star {} is not a valid. The star will be skipped".format(value, star)))
+                print(colored("\n    >>> Warning: The ExternalData value for the parameter {} of the star {} is not a valid. The star will be skipped".format(value, star)), flush=True)
         it=it+1
+    print("\n", flush=True)
     # Recover all of the stars in the table and the errors 
     Xall=np.zeros(len(IndexStarIDOK), dtype=float)
     Xerrall=np.zeros(len(IndexStarIDOK), dtype=float)
@@ -990,7 +1146,7 @@ def DoClassesExternalvsRot(ModelCode, ProductsOdds, ProductsRot,ExternalData, Ro
                 }
             key=increment_letter(key)
     else:
-        print("\t Warning: The number of Probability thresholds is only one. A single class will be created")
+        print(colored("\t Warning: The number of Probability thresholds is only one. A single class will be created", "yellow"), flush=True)
         PosKeep=np.where(Pall <= ProbaThresholds[0])[0]
         label="P <= {}".format(ProbaThresholds[0])
         err_x=np.zeros((2,len(PosKeep))) 
@@ -1127,7 +1283,9 @@ def Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root
                        core_odds_files="Proba_summary", core_rot_files="rotation_stats",
                        odds_keys=["m1s", "median", "p1s"],confidence_rot=[2.25, 16, 50, 84, 97.75], ProbaThresholds=[50, 70, 90],
                        ProductsOdds=None, ProductsRot=None,
-                       do_recompose=[False, [[],[]]]):
+                       do_recompose=[False, [[],[]]],
+                       do_moving_average=[True, 5, ["A", "B", "C", "D"]],
+                       extra_data=[None, None]):
     """
     Plot the ajAlm data after loading the correct data sets. Do not get confused with plot_ajAlm() which is a function that only plots the data.
 
@@ -1165,6 +1323,10 @@ def Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root
                         a. Pr("1201_Gate_decompose_-1") = Pr("1201_Gate_decompose_1") = Pr("1201_Gate_decompose_2")
                         b. Pr("1201_Triangle_decompose_-1") = Pr("1201_Triangle_decompose_1") = Pr("1201_Triangle_decompose_2")
                     If the renormalisation is done, the sum of all of the probabilities for all groups will be set to 1.
+        do_moving_average (list, optional): A list with three values. The first one tells if we do a moving average.
+                The second one is the window size (number of bins to average).
+                The third is a list of keys that are going to be averaged.
+        extra_data: A list of two dictionaries containing the extra data to be plotted. The first dictionary is for the first variable and the second is for the second variable.
     """
     if ProductsOdds == None or ProductsRot == None:
         ProductsOdds, ProductsRot=get_productsdata(os.path.join(products_root_dir , set_dir), core_odds_files=core_odds_files, core_rot_files=core_rot_files,
@@ -1199,20 +1361,59 @@ def Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root
                         MarkerThresholds=["o", "o", "o", "o"],FillThresholds=['none','none', "full", "full"],
                         do_hline=[True,0])
         WriteDataClass(os.path.join(dir_out, imgfile + ".{}.res".format(var_name2)), classes_var_name2, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
-
-    fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
-    plot_ajAlm(classes_var_name1, ax=ax[0])
-    plot_ajAlm(classes_var_name2, ax=ax[1])
-    ax[0].set_title("Significance {}".format(set_dir))
-    # Handling legends
-    ax[0].legend(fontsize=10, loc='upper right')	
-    fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
+    # Plotting the data
+    if var_name1 == "theta_min" and var_name2 == "theta_max": # This case is a bit special as errors are more like band-width
+        classes_actband=copy.deepcopy(classes_var_name1)
+        classes_actband["ylabel"]=r"$\Delta\theta$ (°)"
+        excluded_keys=['xlabel', 'ylabel', 'hline']
+        allowed_keys=[] 
+        for key in classes_actband.keys():
+            if key not in excluded_keys:
+                allowed_keys.append(key)
+        for key in allowed_keys:
+            classes_actband[key]["whisker_bottom"]=np.zeros(len(classes_actband[key]["y"]), dtype=float)
+            classes_actband[key]["whisker_top"]=np.zeros(len(classes_actband[key]["y"]), dtype=float)
+            for ii in range(len(classes_actband[key]["y"])):
+                # find the index of the "starID" within the classes_var_name1 and classes_var_name2
+                i1=classes_var_name1[key]["starID"].index(classes_actband[key]["starID"][ii])
+                i2=classes_var_name2[key]["starID"].index(classes_actband[key]["starID"][ii])
+                # The new y is the average of the min and max of the band
+                classes_actband[key]["y"][ii]=(classes_var_name1[key]["y"][i1] + classes_var_name2[key]["y"][i2])/2
+                # The new low bound of the "error" is set to be the theta_min value. 
+                classes_actband[key]["err_y"][0,ii]= np.abs(classes_actband[key]["y"][ii] - classes_var_name1[key]["y"][i1])
+                # The new upper bound of the "error" is set to be the theta_max value.
+                classes_actband[key]["err_y"][1,ii]=np.abs(classes_var_name2[key]["y"][i2] - classes_actband[key]["y"][ii])
+                # Adding Whisker Top and Bottom values for the error (not this is not the error but the lower/upper confidence level)
+                classes_actband[key]["whisker_bottom"][ii]=classes_var_name1[key]["y"][i1] - classes_var_name1[key]["err_y"][0,i1]
+                classes_actband[key]["whisker_top"][ii]=classes_var_name2[key]["y"][i2] + classes_var_name2[key]["err_y"][1,i2]
+        # Doing a similar transformation for the extra data
+        Sun_band=copy.deepcopy(extra_data[0])
+        Sun_band["y"]=(np.array(extra_data[0]["y"]) + np.array(extra_data[1]["y"]))/2
+        Sun_band["err_y"][0]=np.abs( Sun_band["y"] - extra_data[0]["y"])
+        Sun_band["err_y"][1]=np.abs( extra_data[1]["y"] -  Sun_band["y"])
+        # Then plot on a single plot
+        fig_1d, ax = plt.subplots(1, figsize=(12, 6))
+        plot_ajAlm(classes_actband, ax=ax, do_moving_average=do_moving_average, extra_data=Sun_band)    
+    elif var_name2 == "theta_min" and var_name1 == "theta_max": 
+        err_msg="Error: The variables {} and {} are not compatible for plotting\n".format(var_name1, var_name2)
+        err_msg="       Please reverse the order of the variables\n"
+        raise ValueError(colored(err_msg, "red"))
+    else:
+        fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
+        plot_ajAlm(classes_var_name1, ax=ax[0], do_moving_average=do_moving_average, extra_data=extra_data[0])
+        plot_ajAlm(classes_var_name2, ax=ax[1], do_moving_average=do_moving_average, extra_data=extra_data[1])
+        ax[0].set_title("Significance {}".format(set_dir))
+        # Handling legends
+        ax[0].legend(fontsize=10, loc='upper right')	
+        fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
 
 def Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out, imgfile, NonSeismic, products_root_dir, 
                        var_name1, var_name2, xvar, err_xvar, xvar_is_external,
                        core_odds_files="Proba_summary", core_rot_files="rotation_stats",
                        odds_keys=["m1s", "median", "p1s"],confidence_rot=[2.25, 16, 50, 84, 97.75], ProbaThresholds=[50, 70, 90],
-                       ProductsOdds=None, ProductsRot=None):
+                       ProductsOdds=None, ProductsRot=None,
+                       do_moving_average=[True, 5, ["A", "B", "C", "D"]],
+                       extra_data=[None, None]):
     """
     Plot the ajAlm data showing only Max proba among a set 1201 or 1211, RELATIVE to another set (eg. 1001).
     This is performed after loading the correct data sets.
@@ -1238,6 +1439,10 @@ def Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, di
         ProbaThresholds (list, optional): The probability thresholds for the odds ratio. Defaults to [50, 70, 90].
         ProductsOdds (dict, optional): The odds ratio products data. Defaults to None. If not provided, it will be loaded.
         ProductsRot (dict, optional): The rotation products data. Defaults to None. If not provided, it will be loaded.
+        do_moving_average (list, optional): A list with three values. The first one tells if we do a moving average.
+                The second one is the window size (number of bins to average).
+                The third is a list of keys that are going to be averaged.
+        extra_data: A list of two dictionaries containing the extra data to be plotted. The first dictionary is for the first variable and the second is for the second variable.
     """
     if ProductsOdds == None or ProductsRot == None:
         ProductsOdds, ProductsRot=get_productsdata(os.path.join(products_root_dir , set_dir), core_odds_files=core_odds_files, core_rot_files=core_rot_files,
@@ -1255,15 +1460,66 @@ def Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, di
     # Saving the data in files
     WriteDataClass(os.path.join(dir_out, imgfile + ".PeakGroup.{}.res".format(var_name1)), classes_var_name1, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
     WriteDataClass(os.path.join(dir_out, imgfile + ".PeakGroup.{}.res".format(var_name2)), classes_var_name2, header="#Tabular representation of the data class used in the plots\n#Data from {}\n#Comparing: {}\n".format(dir_out, set_dir))
-    #print(colored("Data saved in files.", "green"))
-    # Actual plot
-    fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
-    plot_ajAlm(classes_var_name1, ax=ax[0])
-    plot_ajAlm(classes_var_name2, ax=ax[1])
-    ax[0].set_title("Significance {}".format(set_dir))
-    # Handling legends
-    ax[0].legend(fontsize=10, loc='upper right')	
-    fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
+    # Plotting the data
+    if var_name1 == "theta_min" and var_name2 == "theta_max": # This case is a bit special as errors are more like band-width
+        classes_actband=copy.deepcopy(classes_var_name1)
+        classes_actband["ylabel"]=r"$\Delta\theta$ (°)"
+        excluded_keys=['xlabel', 'ylabel', 'hline']
+        allowed_keys=[] 
+        for key in classes_actband.keys():
+            if key not in excluded_keys:
+                allowed_keys.append(key)
+        for key in allowed_keys:
+            classes_actband[key]["whisker_bottom"]=np.zeros(len(classes_actband[key]["y"]), dtype=float)
+            classes_actband[key]["whisker_top"]=np.zeros(len(classes_actband[key]["y"]), dtype=float)
+            for ii in range(len(classes_actband[key]["y"])):
+                # find the index of the "starID" within the classes_var_name1 and classes_var_name2
+                i1=classes_var_name1[key]["starID"].index(classes_actband[key]["starID"][ii])
+                i2=classes_var_name2[key]["starID"].index(classes_actband[key]["starID"][ii])
+                # The new y is the average of the min and max of the band
+                classes_actband[key]["y"][ii]=(classes_var_name1[key]["y"][i1] + classes_var_name2[key]["y"][i2])/2
+                # The new low bound of the "error" is set to be the theta_min value. 
+                classes_actband[key]["err_y"][0,ii]= np.abs(classes_actband[key]["y"][ii] - classes_var_name1[key]["y"][i1])
+                # The new upper bound of the "error" is set to be the theta_max value.
+                classes_actband[key]["err_y"][1,ii]=np.abs(classes_var_name2[key]["y"][i2] - classes_actband[key]["y"][ii])
+                # Adding Whisker Top and Bottom values for the error (not this is not the error but the lower/upper confidence level)
+                classes_actband[key]["whisker_bottom"][ii]=classes_var_name1[key]["y"][i1] - classes_var_name1[key]["err_y"][0,i1]
+                classes_actband[key]["whisker_top"][ii]=classes_var_name2[key]["y"][i2] + classes_var_name2[key]["err_y"][1,i2]
+            '''
+            print(" >>>> key={}: ".format(key), flush=True)
+            print(" actband[y]   /   var_name1[y]   /   var_name2[y]  /  actband[0, err_y] /  actband[1,err_y]")
+            for ii in range(len(classes_var_name1[key]["y"])):
+                print("{0:<15.4f} {1:<15.4f} {2:<15.4f} {3:<15.4f} {4:<15.4f}".format(classes_actband[key]["y"][ii], 
+                                                                                      classes_var_name1[key]["y"][ii], 
+                                                                                      classes_var_name2[key]["y"][ii],
+                                                                                      classes_actband[key]["err_y"][0,ii],
+                                                                                      classes_actband[key]["err_y"][1,ii]), flush=True)
+            print(colored(" ------------------- ", "yellow"))
+            '''
+        # Doing a similar transformation for the extra data
+        Sun_band=copy.deepcopy(extra_data[0])
+        Sun_band["y"]=(np.array(extra_data[0]["y"]) + np.array(extra_data[1]["y"]))/2
+        Sun_band["err_y"][0]=np.abs( Sun_band["y"] - extra_data[0]["y"])
+        Sun_band["err_y"][1]=np.abs( extra_data[1]["y"] - Sun_band["y"])
+        # Then plot on a single plot
+        fig_1d, ax = plt.subplots(1, figsize=(12, 6))
+        plot_ajAlm(classes_actband, ax=ax, do_moving_average=do_moving_average, extra_data=Sun_band)    
+        ax.set_title("Significance {}".format(set_dir))
+        # Handling legends
+        ax.legend(fontsize=10, loc='upper right')	
+        fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
+    elif var_name2 == "theta_min" and var_name1 == "theta_max": 
+        err_msg="Error: The variables {} and {} are not compatible for plotting\n".format(var_name1, var_name2)
+        err_msg="       Please reverse the order of the variables\n"
+        raise ValueError(colored(err_msg, "red"))
+    else:
+        fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
+        plot_ajAlm(classes_var_name1, ax=ax[0], do_moving_average=do_moving_average, extra_data=extra_data[0])
+        plot_ajAlm(classes_var_name2, ax=ax[1], do_moving_average=do_moving_average, extra_data=extra_data[1])
+        ax[0].set_title("Significance {}".format(set_dir))
+        # Handling legends
+        ax[0].legend(fontsize=10, loc='upper right')	
+        fig_1d.savefig(os.path.join(dir_out, imgfile), dpi=300)
 
 def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary", core_rot_files="rotation_stats",
                 odds_keys=["m1s", "median", "p1s"],
@@ -1273,14 +1529,17 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
     Function that plots the values of a2 and a4 in function of
         - a1
         - Teff
-        - M
-        - R
     If an activity_summary_file (with epsilon, theta0, delta) is also provided, shows its quantities the same quantities listed above
     '''
-    products_root_dir="/Users/obenomar/Work/dev/ajAlm/data/HighLevelProducts/Tcoef_1.7_1.86.77/statistical_summary/"
     external_file="/Users/obenomar/Work/dev/ajAlm/External_data/composite_table_Legacy_Kamiaka.csv"
-    dir_out="/Users/obenomar/Work/dev/ajAlm/data/HighLevelResults/Tcoef_1.7_1.86.77/"
- 
+    products_root_dir="/Users/obenomar/Work/dev/ajAlm/data/HighLevelProducts/Tcoef_1.7_1.86.77/statistical_summary/"
+    # --- This set does not contain theta_min and theta_max -----
+    #dir_out="/Users/obenomar/Work/dev/ajAlm/data/HighLevelResults/Tcoef_1.7_1.86.77_ALL/" 
+    # --- This set DOES contain theta_min and theta_max -----
+    dir_out="/Users/obenomar/Work/dev/ajAlm/data/HighLevelResults/Tcoef_1.7_1.86.77_ALL_WITHTHETAMINMAX/" 
+
+    window_average=6
+    keys_average=["B", "C", "D"] # anything above 50% probability
     ProbaThresholds=[50, 70, 90]
 
     print('Reading the file with M, R, Teff, etc... ', external_file)   
@@ -1314,85 +1573,76 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
     #             do_recompose=[True, [["1001"],
     #                                  ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize])
 
+    '''
     renormalize=True # If True, the probability is renormalized to 1 between the models listed in do_recompose
-    set_dir = "All"
+    set_dir = "All_Evidence_1chain_new"
     ModelCode="1201Gatedecompose_-1"
     imgfile='Activitysignificance_vs_1201Gate-1_Teff.jpg'
     Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
                  do_recompose=[True, [["1001"],
                                       ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", 
-                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize])
+                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize],
+                 do_moving_average=[True, window_average, keys_average], 
+                 extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
     ModelCode="1201Gatedecompose_1"
     imgfile='Activitysignificance_vs_1201Gate1_Teff.jpg'
     Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
                  do_recompose=[True, [["1001"],
                                       ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", 
-                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize])
+                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize],
+                 do_moving_average=[True, window_average, keys_average], 
+                 extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
 
     ModelCode="1201Gatedecompose_2"
     imgfile='Activitysignificance_vs_1201Gate2_Teff.jpg'
     Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
                  do_recompose=[True, [["1001"],
                                       ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", 
-                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize])
+                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize],
+                 do_moving_average=[True, window_average, keys_average], 
+                 extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
 
     ModelCode="1201Triangledecompose_-1"
     imgfile='Activitysignificance_vs_1201Triangle-1_Teff.jpg'
     Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
                  do_recompose=[True, [["1001"],
                                       ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", 
-                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize])
+                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize],
+                 do_moving_average=[True, window_average, keys_average], 
+                 extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
 
     ModelCode="1201Triangledecompose_1"
     imgfile='Activitysignificance_vs_1201Triangle1_Teff.jpg'
     Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
                  do_recompose=[True, [["1001"],
                                       ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", 
-                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize])
+                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize],
+                 do_moving_average=[True, window_average, keys_average], 
+                 extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
 
     ModelCode="1201Triangledecompose_2"
     imgfile='Activitysignificance_vs_1201Triangle2_Teff.jpg'
     Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
                  do_recompose=[True, [["1001"],
                                       ["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2", 
-                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize])
-
-    ModelFamilyActivity="1201"
-    ModelCodeRef="1001"
-    imgfile='HIGHESTActivitysignificance_vs_1001_Teff.jpg'
-    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1201vs1001/", imgfile, NonSeismic, products_root_dir,  
-                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True)
-
-    ModelFamilyActivity="1211"
-    ModelCodeRef="1001"
-    imgfile='HIGHESTActivitysignificance_vs_1001_Teff.jpg'
-    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1001/", imgfile, NonSeismic, products_root_dir,  
-                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True)
-
-    ModelFamilyActivity="1211"
-    ModelCodeRef="1011"
-    imgfile='HIGHESTActivitysignificance_vs_1011_Teff.jpg'
-    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1011/", imgfile, NonSeismic, products_root_dir,  
-                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True)
-
-    ModelFamilyActivity="12X1"
-    ModelCodeRef="1001"
-    imgfile='HIGHESTActivitysignificance_vs_1001_Teff.jpg'
-    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/12X1vs1001/", imgfile, NonSeismic, products_root_dir,  
-                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True)
+                                       "1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]], renormalize],
+                 do_moving_average=[True, window_average, keys_average], 
+                 extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
     
 
     # ================= a2  significance using 1001 vs 1101 =================
     set_dir = "1001_vs_1101"
     ModelCode="1101"
     imgfile='a2significance_vs_a2a4_Teff.jpg'
-    Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "a2", "a4", "Teff_SDSS", "Tot_eTeff", True)
+    Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "a2", "a4", "Teff_SDSS", "Tot_eTeff", True,
+                                  do_moving_average=[True, window_average, keys_average])
     # --
     imgfile='a2significance_vs_a2a4_a1.jpg'
-    Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "a2", "a4", "a1", "", False)
+    Doplot_ajAlm(set_dir, ModelCode, dir_out, imgfile, NonSeismic, products_root_dir,  "a2", "a4", "a1", "", False,
+                                  do_moving_average=[True, window_average, keys_average])
 
     # ==============  Activity significance that is Model Constrained : 1001 vs Sum_{j,k} 1201k ===============
-    set_dir = "All"
+    set_dir = "All_Evidence_1chain_new"
     renormalize=True # If True, the probability is renormalized to 1 between the models listed in do_recompose
     shortname=["G-1","G1","G2"]
     Models=["1201Gatedecompose_-1", "1201Gatedecompose_1", "1201Gatedecompose_2"]
@@ -1400,25 +1650,33 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
         imgfile='Activity_1001_vs_Sum1201G_Teff_Show1201{}.jpg'.format(shortname[i])
         Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
                     do_recompose=[True, [["1001"],
-                                        Models], renormalize])
+                                        Models], renormalize],
+                    do_moving_average=[True, window_average, keys_average], 
+                    extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
         imgfile='Activity_1001_vs_Sum1201G_a1_Show1201{}.jpg'.format(shortname[i])
         Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "a1", "", False,
                     do_recompose=[True, [["1001"],
-                                        Models], renormalize])
+                                        Models], renormalize],
+                    do_moving_average=[True, window_average, keys_average], 
+                    extra_data=[data_Benomar2023("a1", "theta0"), data_Benomar2023("a1", "delta")])
     shortname=["T-1","T1","T2"]
     Models=["1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]
     for i in range(3):
         imgfile='Activity_1001_vs_Sum1201T_Teff_Show1201{}.jpg'.format(shortname[i])
         Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
                     do_recompose=[True, [["1001"],
-                                        Models], renormalize])
+                                        Models], renormalize],
+                    do_moving_average=[True, window_average, keys_average], 
+                    extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
         imgfile='Activity_1001_vs_Sum1201T_a1_Show1201{}.jpg'.format(shortname[i])
         Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "a1", "", False,
                     do_recompose=[True, [["1001"],
-                                        Models], renormalize])
+                                        Models], renormalize],
+                    do_moving_average=[True, window_average, keys_average], 
+                    extra_data=[data_Benomar2023("a1", "theta0"), data_Benomar2023("a1", "delta")])
         
     # ==============  Activity significance that is Model Constrained with a3 : 1011 vs Sum_{j,k} 1211k ===============
-    set_dir = "All"
+    set_dir = "All_Evidence_1chain_new"
     renormalize=True # If True, the probability is renormalized to 1 between the models listed in do_recompose
     shortname=["G-1","G1","G2"]
     Models=["1211Gatedecompose_-1", "1211Gatedecompose_1", "1211Gatedecompose_2"]
@@ -1426,11 +1684,15 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
         imgfile='Activity_1011_vs_Sum1211G_Teff_Show1211{}.jpg'.format(shortname[i])
         Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
                     do_recompose=[True, [["1011"],
-                                        Models], renormalize])
+                                        Models], renormalize],
+                    do_moving_average=[True, window_average, keys_average], 
+                    extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
         imgfile='Activity_1011_vs_Sum1211G_a1_Show1211{}.jpg'.format(shortname[i])
         Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "a1", "", False,
                     do_recompose=[True, [["1011"],
-                                        Models], renormalize])
+                                        Models], renormalize],
+                    do_moving_average=[True, window_average, keys_average], 
+                    extra_data=[data_Benomar2023("a1", "theta0"), data_Benomar2023("a1", "delta")])
         
     shortname=["T-1","T1","T2"]
     Models=["1201Triangledecompose_-1", "1201Triangledecompose_1", "1201Triangledecompose_2"]
@@ -1438,11 +1700,110 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
         imgfile='Activity_1011_vs_Sum1211T_Teff_Show1211{}.jpg'.format(shortname[i])
         Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
                     do_recompose=[True, [["1011"],
-                                        Models], renormalize])
+                                        Models], renormalize],
+                    do_moving_average=[True, window_average, keys_average], 
+                    extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
         imgfile='Activity_1011_vs_Sum1211T_a1_Show1201{}.jpg'.format(shortname[i])
         Doplot_ajAlm(set_dir, Models[i], dir_out, imgfile, NonSeismic, products_root_dir,  "theta0", "delta", "a1", "", False,
                     do_recompose=[True, [["1011"],
-                                        Models], renormalize])
+                                        Models], renormalize],
+                    do_moving_average=[True, window_average, keys_average], 
+                    extra_data=[data_Benomar2023("a1", "theta0"), data_Benomar2023("a1", "delta")])
+    '''
+    # ------------------- HIGHEST PROBABILITY ONLY -------------------
+    # ----------- Keeping only the highest probability among the 1201 models VS 1001 ------------
+    set_dir = "All_Evidence_1chain_new"
+    ModelFamilyActivity="1201"
+    ModelCodeRef="1001"
+    imgfile='HIGHESTActivitysignificance_vs_1001_Teff.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1201vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
+    imgfile='HIGHESTActivitysignificance_vs_1001_a1.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1201vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "a1", "", False,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("a1", "theta0"), data_Benomar2023("a1", "delta")])
+    imgfile='HIGHESTActivitysignificance_vs_1001_Teff_thetaminmax.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1201vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta_min", "theta_max", "Teff_SDSS", "Tot_eTeff", True,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("Teff", "theta_min"), data_Benomar2023("Teff", "theta_max")])
+    imgfile='HIGHESTActivitysignificance_vs_1001_a1_thetaminmax.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1201vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta_min", "theta_max", "a1", "", False,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("a1", "theta_min"), data_Benomar2023("a1", "theta_max")])
+    # ----------- Keeping only the highest probability among the 1211 models VS 1001 ------------
+    ModelFamilyActivity="1211"
+    ModelCodeRef="1001"
+    imgfile='HIGHESTActivitysignificance_vs_1001_Teff.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
+    imgfile='HIGHESTActivitysignificance_vs_1001_a1.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "a1", "", False,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("a1", "theta0"), data_Benomar2023("a1", "delta")])   
+    imgfile='HIGHESTActivitysignificance_vs_1001_Teff_thetaminmax.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta_min", "theta_max", "Teff_SDSS", "Tot_eTeff", True,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("Teff", "theta_min"), data_Benomar2023("Teff", "theta_max")])
+    imgfile='HIGHESTActivitysignificance_vs_1001_a1_thetaminmax.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta_min", "theta_max", "a1", "", False,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("a1", "theta_min"), data_Benomar2023("a1", "theta_max")]) 
+    # ----------- Keeping only the highest probability among the 1211 models VS 1011 ------------
+    ModelFamilyActivity="1211"
+    ModelCodeRef="1011"
+    imgfile='HIGHESTActivitysignificance_vs_1011_Teff.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1011/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
+    imgfile='HIGHESTActivitysignificance_vs_1011_a1.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1011/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "a1", "", False,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("a1", "theta0"), data_Benomar2023("a1", "delta")])
+    imgfile='HIGHESTActivitysignificance_vs_1011_Teff_thetaminmax.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1011/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta_min", "theta_max", "Teff_SDSS", "Tot_eTeff", True,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("Teff", "theta_min"), data_Benomar2023("Teff", "theta_max")])
+    imgfile='HIGHESTActivitysignificance_vs_1011_a1_thetaminmax.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/1211vs1011/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta_min", "theta_max", "a1", "", False,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("a1", "theta_min"), data_Benomar2023("a1", "theta_max")])
+    # ----------- Keeping only the highest probability among the 12X1 models VS 1001 ------------
+    ModelFamilyActivity="12X1"
+    ModelCodeRef="1001"
+    imgfile='HIGHESTActivitysignificance_vs_1001_Teff.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/12X1vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "Teff_SDSS", "Tot_eTeff", True,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("Teff", "theta0"), data_Benomar2023("Teff", "delta")])
+    imgfile='HIGHESTActivitysignificance_vs_1001_a1.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/12X1vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta0", "delta", "a1", "", False,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("a1", "theta0"), data_Benomar2023("a1", "delta")])
+    imgfile='HIGHESTActivitysignificance_vs_1001_Teff_thetaminmax.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/12X1vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta_min", "theta_max", "Teff_SDSS", "Tot_eTeff", True,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("Teff", "theta_min"), data_Benomar2023("Teff", "theta_max")])
+    imgfile='HIGHESTActivitysignificance_vs_1001_a1_thetaminmax.jpg'
+    Doplot_ajAlm_MaxProba12011211(set_dir, ModelFamilyActivity, ModelCodeRef, dir_out + "/12X1vs1001/", imgfile, NonSeismic, products_root_dir,  
+                                  "theta_min", "theta_max", "a1", "", False,
+                                  do_moving_average=[True, window_average, keys_average], 
+                                  extra_data=[data_Benomar2023("a1", "theta_min"), data_Benomar2023("a1", "theta_max")])
     '''
     # ==============   a3  significance using 1101 vs 1111 ===============
     set_dir = "1101_vs_1111"
@@ -1455,184 +1816,6 @@ def show_ajAlm(products_root_dir, external_file, core_odds_files="Proba_summary"
     '''
 
     '''
-    #
-    # a2AR and a4 function of M
-    fig_1d.savefig(dir_out+ 'summary_a2a4_Mass.jpg', dpi=300)
-    #
-    # a2AR and a4 function of R
-    fig_1d.savefig(dir_out+ 'summary_a2a4_Radius.jpg', dpi=300)
-    #
-    # a2AR and a4 function of Teff
-    fig_1d.savefig(dir_out+ 'summary_a2a4_Teff.jpg', dpi=300)
-    #
-    # a2AR and a4 function of past a1
-    fig_1d.savefig(dir_out+ 'summary_a2a4_pasta1.jpg', dpi=300)
-   #
-    # a2AR and a4 function of past a3
-    fig_1d.savefig(dir_out+ 'summary_a2a4_pasta3.jpg', dpi=300)
-
-    # a2AR and a4 function of new a1
-    fig_1d.savefig(dir_out+ 'summary_a2a4_newa1.jpg', dpi=300)
-   #
-    # a2AR and a4 function of new a3
-    fig_1d.savefig(dir_out+ 'summary_a2a4_newa3.jpg', dpi=300)
-
-    # a2AR and a4 function of inclination
-    fig_1d.savefig(dir_out+ 'summary_a2a4_inc.jpg', dpi=300)
-
-    ###############################################################
-    ###############################################################
-    ########################### ajAlm #############################
-    ###############################################################
-    ###############################################################
-    if activity_summary_file != None:
-        # a2AR and a4 function of theta0 FROM ajAlm
-        fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
-        #ax[0].errorbar(data_ajnew[pos_bad, i_a3], data_ajnew[pos_bad, i_a2AR], yerr=[data_ajnew[pos_bad, i_a2AR+1],data_ajnew[pos_bad, i_a2AR+2]], marker='o',linestyle='', color=cols[1])
-        ax[0].errorbar(data_ajAlm[pos_fair, i_theta0], data_ajnew[pos_fair, i_a2AR], yerr=np.squeeze([data_ajnew[pos_fair, i_a2AR+1],data_ajnew[pos_fair, i_a2AR+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[0].errorbar(data_ajAlm[pos_good, i_theta0], data_ajnew[pos_good, i_a2AR], yerr=np.squeeze([data_ajnew[pos_good, i_a2AR+1],data_ajnew[pos_good, i_a2AR+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[0].axhline(0, linestyle='--', color='black')
-        ax[0].set_ylabel('a2AR (nHz)')
-        ax[0].set_xlim(0, 90)
-        #ax[1].errorbar(data_ajnew[pos_bad, i_a3], data_ajnew[pos_bad, i_a4], yerr=np.squeeze([data_ajnew[pos_bad, i_a4+1],data_ajnew[pos_bad, i_a4+2]]), marker='o',linestyle='', color=cols[1])
-        ax[1].errorbar(data_ajAlm[pos_fair, i_theta0], data_ajnew[pos_fair, i_a4], yerr=np.squeeze([data_ajnew[pos_fair, i_a4+1],data_ajnew[pos_fair, i_a4+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[1].errorbar(data_ajAlm[pos_good, i_theta0], data_ajnew[pos_good, i_a4], yerr=np.squeeze([data_ajnew[pos_good, i_a4+1],data_ajnew[pos_good, i_a4+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[1].axhline(0, linestyle='--', color='black')
-        ax[1].set_ylabel('a4 (nHz)')
-        ax[1].set_xlabel('theta0')
-        ax[1].set_xlim(0, 90)
-        # Handling legends
-        ax[0].legend(fontsize=10, loc='upper left')	
-        fig_1d.savefig(dir_out+ 'summary_a2a4_theta0.jpg', dpi=300)
-
-        # a2AR and a4 function of delta FROM ajAlm
-        fig_1d, ax = plt.subplots(2,1, figsize=(12, 6))
-        #ax[0].errorbar(data_ajnew[pos_bad, i_a3], data_ajnew[pos_bad, i_a2AR], yerr=[data_ajnew[pos_bad, i_a2AR+1],data_ajnew[pos_bad, i_a2AR+2]], marker='o',linestyle='', color=cols[1])
-        ax[0].errorbar(data_ajAlm[pos_fair, i_delta], data_ajnew[pos_fair, i_a2AR], yerr=np.squeeze([data_ajnew[pos_fair, i_a2AR+1],data_ajnew[pos_fair, i_a2AR+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[0].errorbar(data_ajAlm[pos_good, i_delta], data_ajnew[pos_good, i_a2AR], yerr=np.squeeze([data_ajnew[pos_good, i_a2AR+1],data_ajnew[pos_good, i_a2AR+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[0].axhline(0, linestyle='--', color='black')
-        ax[0].set_ylabel('a2AR (nHz)')
-        ax[0].set_xlim(0, 45)
-        #ax[1].errorbar(data_ajnew[pos_bad, i_a3], data_ajnew[pos_bad, i_a4], yerr=np.squeeze([data_ajnew[pos_bad, i_a4+1],data_ajnew[pos_bad, i_a4+2]]), marker='o',linestyle='', color=cols[1])
-        ax[1].errorbar(data_ajAlm[pos_fair, i_delta], data_ajnew[pos_fair, i_a4], yerr=np.squeeze([data_ajnew[pos_fair, i_a4+1],data_ajnew[pos_fair, i_a4+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[1].errorbar(data_ajAlm[pos_good, i_delta], data_ajnew[pos_good, i_a4], yerr=np.squeeze([data_ajnew[pos_good, i_a4+1],data_ajnew[pos_good, i_a4+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[1].axhline(0, linestyle='--', color='black')
-        ax[1].set_ylabel('a4 (nHz)')
-        ax[1].set_xlabel('delta')
-        ax[1].set_xlim(0, 45)
-        # Handling legends
-        ax[0].legend(fontsize=10, loc='upper left')	
-        fig_1d.savefig(dir_out+ 'summary_a2a4_delta.jpg', dpi=300)
-
-        # theta0 and delta and epsilon function of M
-        fig_1d, ax = plt.subplots(3,1, figsize=(12, 6))
-        ax[0].errorbar(M_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_epsi], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_epsi+1],data_ajAlm[pos_fair_Alm, i_epsi+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[0].errorbar(M_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_epsi], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_epsi+1],data_ajAlm[pos_good_Alm, i_epsi+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[0].set_yscale('log')
-        #ax[0].axhline(0, linestyle='--', color='black')
-        ax[0].set_ylabel('epsilon')
-        ax[1].errorbar(M_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_theta0], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_theta0+1],data_ajAlm[pos_fair_Alm, i_theta0+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[1].errorbar(M_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_theta0], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_theta0+1],data_ajAlm[pos_good_Alm, i_theta0+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[1].set_ylabel('theta0')
-        ax[1].set_ylim(0, 90)
-        #ax[1].axhline(0, linestyle='--', color='black')
-        ax[2].errorbar(M_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_delta], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_delta+1],data_ajAlm[pos_fair_Alm, i_delta+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[2].errorbar(M_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_delta], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_delta+1],data_ajAlm[pos_good_Alm, i_delta+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[2].set_ylabel('delta')
-        ax[2].set_ylim(0, 45)
-        #ax[2].axhline(0, linestyle='--', color='black')
-        ax[2].set_xlabel('Mass')
-        # Handling legends
-        ax[0].legend(fontsize=10, loc='upper left')	
-        fig_1d.savefig(dir_out+ 'summary_Alm_Mass.jpg', dpi=300)
-
-        # theta0 and delta and epsilon function of R
-        fig_1d, ax = plt.subplots(3,1, figsize=(12, 6))
-        ax[0].errorbar(R_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_epsi], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_epsi+1],data_ajAlm[pos_fair_Alm, i_epsi+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[0].errorbar(R_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_epsi], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_epsi+1],data_ajAlm[pos_good_Alm, i_epsi+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        #ax[0].axhline(0, linestyle='--', color='black')
-        ax[0].set_ylabel('epsilon')
-        ax[0].set_yscale('log')
-        ax[1].errorbar(R_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_theta0], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_theta0+1],data_ajAlm[pos_fair_Alm, i_theta0+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[1].errorbar(R_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_theta0], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_theta0+1],data_ajAlm[pos_good_Alm, i_theta0+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[1].set_ylabel('theta0')
-        ax[1].set_ylim(0, 90)
-        #ax[1].axhline(0, linestyle='--', color='black')
-        ax[2].errorbar(R_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_delta], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_delta+1],data_ajAlm[pos_fair_Alm, i_delta+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[2].errorbar(R_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_delta], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_delta+1],data_ajAlm[pos_good_Alm, i_delta+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[2].set_ylabel('delta')
-        ax[2].set_ylim(0, 45)
-        #ax[2].axhline(0, linestyle='--', color='black')
-        ax[2].set_xlabel('Radius')
-        # Handling legends
-        ax[0].legend(fontsize=10, loc='upper left')	
-        fig_1d.savefig(dir_out+ 'summary_Alm_Radius.jpg', dpi=300)
-
-        # theta0 and delta and epsilon function of Teff
-        fig_1d, ax = plt.subplots(3,1, figsize=(12, 6))
-        ax[0].errorbar(Teff_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_epsi], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_epsi+1],data_ajAlm[pos_fair_Alm, i_epsi+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[0].errorbar(Teff_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_epsi], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_epsi+1],data_ajAlm[pos_good_Alm, i_epsi+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        #ax[0].axhline(0, linestyle='--', color='black')
-        ax[0].set_ylabel('epsilon')
-        ax[0].set_yscale('log')
-        ax[1].errorbar(Teff_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_theta0], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_theta0+1],data_ajAlm[pos_fair_Alm, i_theta0+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[1].errorbar(Teff_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_theta0], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_theta0+1],data_ajAlm[pos_good_Alm, i_theta0+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[1].set_ylabel('theta0')
-        ax[1].set_ylim(0, 90)
-        #ax[1].axhline(0, linestyle='--', color='black')
-        ax[2].errorbar(Teff_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_delta], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_delta+1],data_ajAlm[pos_fair_Alm, i_delta+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[2].errorbar(Teff_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_delta], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_delta+1],data_ajAlm[pos_good_Alm, i_delta+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[2].set_ylabel('delta')
-        ax[2].set_ylim(0, 45)
-        #ax[2].axhline(0, linestyle='--', color='black')
-        ax[2].set_xlabel('Teff (K)')
-        # Handling legends
-        ax[0].legend(fontsize=10, loc='upper left')	
-        fig_1d.savefig(dir_out+ 'summary_Alm_Teff.jpg', dpi=300)
-
-        # theta0 and delta and epsilon function of past a1
-        fig_1d, ax = plt.subplots(3,1, figsize=(12, 6))
-        ax[0].errorbar(a1past_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_epsi], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_epsi+1],data_ajAlm[pos_fair_Alm, i_epsi+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[0].errorbar(a1past_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_epsi], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_epsi+1],data_ajAlm[pos_good_Alm, i_epsi+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        #ax[0].axhline(0, linestyle='--', color='black')
-        ax[0].set_ylabel('epsilon')
-        ax[0].set_yscale('log')
-        ax[1].errorbar(a1past_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_theta0], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_theta0+1],data_ajAlm[pos_fair_Alm, i_theta0+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[1].errorbar(a1past_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_theta0], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_theta0+1],data_ajAlm[pos_good_Alm, i_theta0+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[1].set_ylabel('theta0')
-        ax[1].set_ylim(0, 90)
-        #ax[1].axhline(0, linestyle='--', color='black')
-        ax[2].errorbar(a1past_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_delta], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_delta+1],data_ajAlm[pos_fair_Alm, i_delta+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[2].errorbar(a1past_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_delta], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_delta+1],data_ajAlm[pos_good_Alm, i_delta+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[2].set_ylabel('delta')
-        ax[2].set_ylim(0, 45)
-        #ax[2].axhline(45, linestyle='--', color='black')
-        ax[2].set_xlabel('Past a1 (nHz)')
-        # Handling legends
-        ax[0].legend(fontsize=10, loc='upper left')	
-        fig_1d.savefig(dir_out+ 'summary_Alm_pasta1.jpg', dpi=300)
-
-        # theta0 and delta and epsilon function of past a3
-        fig_1d, ax = plt.subplots(3,1, figsize=(12, 6))
-        ax[0].errorbar(a3past_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_epsi], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_epsi+1],data_ajAlm[pos_fair_Alm, i_epsi+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[0].errorbar(a3past_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_epsi], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_epsi+1],data_ajAlm[pos_good_Alm, i_epsi+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        #ax[0].axhline(0, linestyle='--', color='black')
-        ax[0].set_ylabel('epsilon')
-        ax[0].set_yscale('log')
-        ax[1].errorbar(a3past_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_theta0], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_theta0+1],data_ajAlm[pos_fair_Alm, i_theta0+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[1].errorbar(a3past_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_theta0], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_theta0+1],data_ajAlm[pos_good_Alm, i_theta0+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[1].set_ylabel('theta0')
-        ax[1].set_ylim(0, 90)
-        #ax[1].axhline(90, linestyle='--', color='black')
-        ax[2].errorbar(a3past_sorted_Alm[pos_fair_Alm], data_ajAlm[pos_fair_Alm, i_delta], yerr=np.squeeze([data_ajAlm[pos_fair_Alm, i_delta+1],data_ajAlm[pos_fair_Alm, i_delta+2]]), marker='o',linestyle='', color=cols[2], label='Fair (2.5<s<3.5)')
-        ax[2].errorbar(a3past_sorted_Alm[pos_good_Alm], data_ajAlm[pos_good_Alm, i_delta], yerr=np.squeeze([data_ajAlm[pos_good_Alm, i_delta+1],data_ajAlm[pos_good_Alm, i_delta+2]]), marker='o',linestyle='', color=cols[3], label='Good (s>3.5)')
-        ax[2].set_ylabel('delta')
-        ax[2].set_ylim(0, 45)
-        #ax[2].axhline(45, linestyle='--', color='black')
-        ax[2].set_xlabel('Past a3 (nHz)')
-        # Handling legends
-        ax[0].legend(fontsize=10, loc='upper left')	
-        fig_1d.savefig(dir_out+ 'summary_Alm_pasta3.jpg', dpi=300)
 
         # ------
         # Added on 14 Dec 2022
